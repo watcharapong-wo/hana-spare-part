@@ -1,0 +1,421 @@
+    /* ซ่อนทุก view ยกเว้นที่มี class active */
+    .view { display: none; }
+    .view.active { display: block; }
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - IT Spare Parts Management</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <script>
+        // ซ่อนทุก view ยกเว้นที่เลือก
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.nav-item[data-view]').forEach(function(nav) {
+                nav.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // remove active from all nav
+                    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+                    nav.classList.add('active');
+                    // hide all views
+                    document.querySelectorAll('.view').forEach(function(view) { view.classList.remove('active'); });
+                    // show selected view
+                    var viewId = nav.getAttribute('data-view') + 'View';
+                    var viewElem = document.getElementById(viewId);
+                    if (viewElem) viewElem.classList.add('active');
+                });
+            });
+        });
+        </script>
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>IT Spare Parts Management</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a class="nav-item active" data-view="dashboard"><span>📊</span> Dashboard</a>
+                <a class="nav-item" data-view="spareparts"><span>⚙️</span> จัดการอะไหล่</a>
+                <a class="nav-item" data-view="transactions"><span>📤</span> เบิก-คืนอะไหล่</a>
+                <a class="nav-item" data-view="reports"><span>📈</span> รายงาน & ส่งออก</a>
+                <a class="nav-item" data-view="users"><span>👥</span> จัดการผู้ใช้</a>
+                <a class="nav-item" data-view="settings"><span>⚙️</span> ตั้งค่าระบบ</a>
+                <a class="nav-item" onclick="logout()"><span>🚪</span> ออกจากระบบ</a>
+            </nav>
+        </aside>
+        <!-- Top Header Bar -->
+        <header class="top-header">
+            <div class="header-left">
+                <h1 class="header-title">IT Spare Parts Management</h1>
+            </div>
+            <div class="header-actions">
+                <!-- ปุ่มเปลี่ยนธีมถูกลบออก -->
+                <button class="header-btn" id="languageToggleBtn" onclick="toggleLanguage()" title="เปลี่ยนภาษา">
+                    <span id="languageText">EN</span>
+                </button>
+                <div class="header-user-info">
+                    <span id="headerUserName"></span>
+                    <span class="badge-sm" id="headerUserRole"></span>
+                </div>
+                <button class="header-btn logout-btn" onclick="logout()" title="ออกจากระบบ">
+                    <span>🚪</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+                                    <!-- Users View -->
+                                    <div id="usersView" class="view">
+                                        <div class="page-header">
+                                            <div>
+                                                <h1>👥 จัดการผู้ใช้งาน</h1>
+                                                <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">สร้างและจัดการบัญชีผู้ใช้</p>
+                                            </div>
+                                            <button class="btn btn-primary" onclick="showAddUserModal()">
+                                                ➕ เพิ่มผู้ใช้
+                                            </button>
+                                        </div>
+                                        <div class="filters">
+                                            <input type="text" id="searchUsers" placeholder="🔍 ค้นหา Username/ชื่อ" oninput="loadUsers()">
+                                            <select id="filterUserRole" onchange="loadUsers()">
+                                                <option value="">👤 ทุก Role</option>
+                                                <option value="admin">Admin</option>
+                                                <option value="staff">Staff</option>
+                                                <option value="viewer">Viewer</option>
+                                            </select>
+                                            <select id="filterUserStatus" onchange="loadUsers()" style="max-width: 180px;">
+                                                <option value="">สถานะทั้งหมด</option>
+                                                <option value="1">Active</option>
+                                                <option value="0">Inactive</option>
+                                            </select>
+                                        </div>
+                                        <div id="usersList"></div>
+                                    </div>
+                        <!-- Settings View -->
+                        <div id="settingsView" class="view">
+                            <div class="page-header">
+                                <div>
+                                    <h1>⚙️ ตั้งค่าระบบ</h1>
+                                    <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">ปรับแต่งลักษณะและพฤติกรรมของระบบ</p>
+                                </div>
+                            </div>
+                            <div class="section">
+                                <h2>🎨 ตั้งค่าการแสดงผล</h2>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label for="settingAppName">ชื่อระบบ</label>
+                                        <input type="text" id="settingAppName" placeholder="IT Spare Parts Management" class="form-control">
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingAppSubtitle">คำอธิบายระบบ</label>
+                                        <input type="text" id="settingAppSubtitle" placeholder="ระบบจัดการอะไหล่ IT" class="form-control">
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingCompanyName">ชื่อบริษัท</label>
+                                        <input type="text" id="settingCompanyName" placeholder="Your Company" class="form-control">
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingLogoText">โลโก้ (ข้อความ)</label>
+                                        <input type="text" id="settingLogoText" placeholder="IT" maxlength="3" class="form-control">
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingPrimaryColor">สีหลัก</label>
+                                        <div class="color-picker-wrapper">
+                                            <input type="color" id="settingPrimaryColor" value="#3b82f6" class="color-picker">
+                                            <span id="primaryColorCode">#3b82f6</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingSecondaryColor">สีรอง</label>
+                                        <div class="color-picker-wrapper">
+                                            <input type="color" id="settingSecondaryColor" value="#8b5cf6" class="color-picker">
+                                            <span id="secondaryColorCode">#8b5cf6</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingSuccessColor">สีสำเร็จ</label>
+                                        <div class="color-picker-wrapper">
+                                            <input type="color" id="settingSuccessColor" value="#10b981" class="color-picker">
+                                            <span id="successColorCode">#10b981</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingWarningColor">สีเตือน</label>
+                                        <div class="color-picker-wrapper">
+                                            <input type="color" id="settingWarningColor" value="#f59e0b" class="color-picker">
+                                            <span id="warningColorCode">#f59e0b</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingDangerColor">สีอันตราย</label>
+                                        <div class="color-picker-wrapper">
+                                            <input type="color" id="settingDangerColor" value="#ef4444" class="color-picker">
+                                            <span id="dangerColorCode">#ef4444</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingInfoColor">สีข้อมูล</label>
+                                        <div class="color-picker-wrapper">
+                                            <input type="color" id="settingInfoColor" value="#06b6d4" class="color-picker">
+                                            <span id="infoColorCode">#06b6d4</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingBackgroundColor">สีพื้นหลัง</label>
+                                        <div class="color-picker-wrapper">
+                                            <input type="color" id="settingBackgroundColor" value="#f9fafb" class="color-picker">
+                                            <span id="backgroundColorCode">#f9fafb</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingSidebarColor">สี Sidebar</label>
+                                        <div class="color-picker-wrapper">
+                                            <input type="color" id="settingSidebarColor" value="#ffffff" class="color-picker">
+                                            <span id="sidebarColorCode">#ffffff</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="settingTextColor">สีตัวอักษร</label>
+                                        <div class="color-picker-wrapper">
+                                            <input type="color" id="settingTextColor" value="#111827" class="color-picker">
+                                            <span id="textColorCode">#111827</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item full-width">
+                                        <label>
+                                            <input type="checkbox" id="settingShowDemoCredentials" checked>
+                                            แสดง Demo Credentials บนหน้า Login
+                                        </label>
+                                    </div>
+                                    <div class="setting-item full-width">
+                                        <label for="settingTheme">โหมดธีม</label>
+                                        <div style="display: flex; gap: 12px; margin-top: 8px;">
+                                            <label class="theme-option">
+                                                <input type="radio" name="theme" id="settingThemeLight" value="light" checked>
+                                                <span class="theme-label">☀️ Light Mode</span>
+                                            </label>
+                                            <label class="theme-option">
+                                                <input type="radio" name="theme" id="settingThemeDark" value="dark">
+                                                <span class="theme-label">🌙 Dark Mode</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item full-width">
+                                        <label>ลำดับเมนู</label>
+                                        <div id="menuOrderList" class="menu-order-list" style="margin-top: 12px;">
+                                            <!-- Menu items will be dynamically inserted here -->
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="margin-top: 24px; display: flex; gap: 12px;">
+                                    <button class="btn btn-primary" onclick="saveSettings()">
+                                        💾 บันทึกการตั้งค่า
+                                    </button>
+                                    <button class="btn btn-secondary" onclick="resetSettings()">
+                                        🔄 รีเซ็ต
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="section">
+                                <h3>📊 ข้อมูลระบบ</h3>
+                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+                                    <div class="info-box">
+                                        <span class="info-label">เวอร์ชัน</span>
+                                        <span class="info-value">1.0.0</span>
+                                    </div>
+                                    <div class="info-box">
+                                        <span class="info-label">สถานะฐานข้อมูล</span>
+                                        <span class="info-value">✅ ใช้งานได้</span>
+                                    </div>
+                                    <div class="info-box">
+                                        <span class="info-label">ผู้ใช้ทั้งหมด</span>
+                                        <span class="info-value" id="totalUsersInfo">-</span>
+                                    </div>
+                                    <div class="info-box">
+                                        <span class="info-label">รายการอะไหล่</span>
+                                        <span class="info-value" id="totalSparepartsInfo">-</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+            <!-- Dashboard View -->
+            <div id="dashboardView" class="view active">
+                <div class="page-header">
+                    <div>
+                        <h1>📊 Dashboard</h1>
+                        <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">ยินดีต้อนรับกลับมา! นี่คือภาพรวมของระบบของคุณ</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="loadDashboard()">
+                        🔄 รีเฟรช
+                    </button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📦</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="totalItems">-</div>
+                            <div class="stat-label">รายการอะไหล่</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="totalQuantity">-</div>
+                            <div class="stat-label">จำนวนรวม</div>
+                        </div>
+                    </div>
+                    <div class="stat-card warning">
+                        <div class="stat-icon">⚠️</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="lowStockItems">-</div>
+                            <div class="stat-label">ของใกล้หมด</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="chart-container">
+                        <h3>📊 สถานะสต็อก</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="stockStatusChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <h3>📈 รายการเบิก vs คืน</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="transactionTrendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="chart-container full-width">
+                        <h3>🔥 อะไหล่ที่เบิกมากที่สุด</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="topItemsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2>🚨 อะไหล่ที่ใกล้หมด</h2>
+                    <div id="lowStockList"></div>
+                </div>
+
+                <div class="section">
+                    <h2>🕐 รายการล่าสุด</h2>
+                    <div id="recentTransactions"></div>
+                </div>
+            </div>
+
+            <!-- Spareparts View -->
+            <div id="sparepartsView" class="view">
+                <div class="page-header">
+                    <div>
+                        <h1>⚙️ จัดการอะไหล่</h1>
+                        <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">บริหารและติดตามสต็อกอะไหล่ IT ของคุณ</p>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <button class="btn btn-primary admin-only" onclick="showAddSparepartModal()">
+                            ➕ เพิ่มอะไหล่
+                        </button>
+                        <button class="btn btn-info" id="importPdfBtn" type="button">Import</button>
+                        <input type="file" id="importPdfInput" name="pdf" accept="application/pdf" style="display:none;">
+                    </div>
+                </div>
+
+                <div class="filters">
+                    <input type="text" id="searchSpareparts" placeholder="🔍 ค้นหาอะไหล่..." onkeyup="loadSpareparts()">
+                    <select id="filterLocation" onchange="loadSpareparts()">
+                        <option value="">📍 ทุกสถานที่</option>
+                        <option value="คลังหลัก">คลังหลัก</option>
+                        <option value="คลังย่อย">คลังย่อย</option>
+                        <option value="ห้อง IT">ห้อง IT</option>
+                    </select>
+                    <input type="number" id="minQty" placeholder="จำนวนขั้นต่ำ" oninput="loadSpareparts()" style="max-width: 180px;">
+                    <input type="number" id="maxQty" placeholder="จำนวนสูงสุด" oninput="loadSpareparts()" style="max-width: 180px;">
+                    <input type="number" id="minStock" placeholder="ขั้นต่ำ min_stock" oninput="loadSpareparts()" style="max-width: 180px;">
+                    <input type="number" id="maxStock" placeholder="สูงสุด min_stock" oninput="loadSpareparts()" style="max-width: 180px;">
+                </div>
+
+                <div id="sparepartsList"></div>
+            </div>
+
+            <!-- Transactions View -->
+            <div id="transactionsView" class="view">
+                <div class="page-header">
+                    <div>
+                        <h1>📤 เบิก-คืนอะไหล่</h1>
+                        <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">บันทึกการเบิกและคืนอะไหล่</p>
+                    </div>
+                    <div>
+                        <button class="btn btn-success" onclick="showTransactionModal('issue')">
+                            📤 เบิกของ
+                        </button>
+                        <button class="btn btn-info" onclick="showTransactionModal('return')">
+                            📥 คืนของ
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filters">
+                    <select id="filterTxType" onchange="loadTransactions()">
+                        <option value="">📋 ทุกประเภท</option>
+                        <option value="ISSUE">📤 เบิกของ</option>
+                        <option value="RETURN">📥 คืนของ</option>
+                    </select>
+                    <input type="text" id="filterRequester" placeholder="ผู้เบิก/คืน" oninput="loadTransactions()" style="max-width: 200px;">
+                    <input type="date" id="filterDateFrom" onchange="loadTransactions()" style="max-width: 180px;">
+                    <input type="date" id="filterDateTo" onchange="loadTransactions()" style="max-width: 180px;">
+                </div>
+
+                <div id="transactionsList"></div>
+            </div>
+
+            <!-- Reports View -->
+            <div id="reportsView" class="view">
+                <div class="page-header">
+                    <div>
+                        <h1>📈 รายงานและส่งออก</h1>
+                        <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">ดูข้อมูลสรุปและส่งออกรายงาน</p>
+                    </div>
+                </div>
+
+                <div class="report-cards">
+                    <div class="report-card">
+                        <h3>📊 Stock Summary</h3>
+                        <p>รายงานสรุปสต็อกอะไหล่ทั้งหมด</p>
+                        <button class="btn btn-primary" onclick="exportStockSummary()">
+                            💾 Export Excel
+                        </button>
+                    </div>
+                    <div class="report-card">
+                        <h3>📝 Recent Transactions</h3>
+                        <p>รายงานการเบิก-คืนล่าสุด</p>
+                        <button class="btn btn-primary" onclick="exportRecentTransactions()">
+                            💾 Export Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
