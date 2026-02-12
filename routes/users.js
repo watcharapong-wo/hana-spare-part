@@ -46,6 +46,14 @@ router.get('/', (req, res) => {
   });
 });
 
+// GET /users (ดึงข้อมูลผู้ใช้)
+router.get('/user', (req, res) => {
+  db.all('SELECT * FROM users', [], (err, rows) => {
+    if (err) return res.status(500).json({ message: 'DB error', error: err.message });
+    res.json({ message: 'Users list', data: rows });
+  });
+});
+
 // POST /users  (สร้างผู้ใช้)
 router.post('/', async (req, res) => {
   const { username, password, role, full_name } = req.body;
@@ -150,6 +158,22 @@ router.patch('/:id/password', async (req, res) => {
       return ok(res, { message: 'Password updated' });
     }
   );
+});
+// DELETE /users/:id (ลบผู้ใช้)
+router.delete('/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return fail(res, 'Invalid user id', 400);
+
+  // กันลบตัวเอง
+  if (id === req.user.id) {
+    return fail(res, 'You cannot delete your own account', 400);
+  }
+
+  db.run('DELETE FROM users WHERE id = ?', [id], function (err) {
+    if (err) return fail(res, 'DB error', 500, err.message);
+    if (this.changes === 0) return fail(res, 'User not found', 404);
+    return ok(res, { message: 'User deleted' });
+  });
 });
 
 module.exports = router;

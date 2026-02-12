@@ -1,4 +1,5 @@
-require('dotenv').config();
+const fs=require('fs');
+const code=`require('dotenv').config();
 
 const express = require('express');
 const path = require('path');
@@ -27,13 +28,9 @@ try {
   console.error('[ERROR] Failed to mount /import-pdf:', e);
 }
 
-// (ถ้าคุณมี routes อื่น ให้ mount ตรงนี้)
 app.use('/auth', require('./routes/auth'));
 app.use('/spareparts', require('./routes/spareparts'));
-app.use('/transactions', require('./routes/transactions'));
-app.use('/users', require('./routes/users'));
-app.use('/settings', require('./routes/settings'));
-app.use('/activity-logs', require('./routes/activity-logs'));
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use((req, res) => {
@@ -50,5 +47,8 @@ app.use((err, req, res, next) => {
 
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log('Server running at http://localhost:' + PORT);
 });
+`;
+fs.writeFileSync('index.js', code, 'utf8');
+console.log('✅ index.js created');

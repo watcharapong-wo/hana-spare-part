@@ -27,14 +27,7 @@ try {
   console.error('[ERROR] Failed to mount /import-pdf:', e);
 }
 
-// (ถ้าคุณมี routes อื่น ให้ mount ตรงนี้)
-app.use('/auth', require('./routes/auth'));
-app.use('/spareparts', require('./routes/spareparts'));
-app.use('/transactions', require('./routes/transactions'));
-app.use('/users', require('./routes/users'));
-app.use('/settings', require('./routes/settings'));
-app.use('/activity-logs', require('./routes/activity-logs'));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use('/auth', require('./routes/auth'));\r\napp.use('/spareparts', require('./routes/spareparts'));\r\napp.use('/transactions', require('./routes/transactions'));\r\napp.use(express.static(path.join(__dirname, 'public')));
 
 app.use((req, res) => {
   res.status(404).send('Not found');
@@ -50,5 +43,5 @@ app.use((err, req, res, next) => {
 
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log('Server running at http://localhost:' + PORT);
 });

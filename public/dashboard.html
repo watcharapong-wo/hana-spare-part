@@ -1,6 +1,11 @@
-    /* ซ่อนทุก view ยกเว้นที่มี class active */
-    .view { display: none; }
-    .view.active { display: block; }
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <style>
+        /* ซ่อนทุก view ยกเว้นที่มี class active */
+        .view { display: none; }
+        .view.active { display: block; }
+    </style>
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -8,29 +13,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - IT Spare Parts Management</title>
     <link rel="stylesheet" href="css/styles.css">
+    <!-- FontAwesome for menu icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="app-container">
-        <script>
-        // ซ่อนทุก view ยกเว้นที่เลือก
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.nav-item[data-view]').forEach(function(nav) {
-                nav.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    // remove active from all nav
-                    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
-                    nav.classList.add('active');
-                    // hide all views
-                    document.querySelectorAll('.view').forEach(function(view) { view.classList.remove('active'); });
-                    // show selected view
-                    var viewId = nav.getAttribute('data-view') + 'View';
-                    var viewElem = document.getElementById(viewId);
-                    if (viewElem) viewElem.classList.add('active');
-                });
-            });
-        });
-        </script>
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -43,6 +31,7 @@
                 <a class="nav-item" data-view="reports"><span>📈</span> รายงาน & ส่งออก</a>
                 <a class="nav-item" data-view="users"><span>👥</span> จัดการผู้ใช้</a>
                 <a class="nav-item" data-view="settings"><span>⚙️</span> ตั้งค่าระบบ</a>
+                <a class="nav-item" data-view="activity" id="activityLogsMenu"><span>📝</span> <span id="activityLogsMenuText">Activity Logs</span></a>
                 <a class="nav-item" onclick="logout()"><span>🚪</span> ออกจากระบบ</a>
             </nav>
         </aside>
@@ -73,7 +62,7 @@
                                         <div class="page-header">
                                             <div>
                                                 <h1>👥 จัดการผู้ใช้งาน</h1>
-                                                <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">สร้างและจัดการบัญชีผู้ใช้</p>
+                                                <p class="desc-text">สร้างและจัดการบัญชีผู้ใช้</p>
                                             </div>
                                             <button class="btn btn-primary" onclick="showAddUserModal()">
                                                 ➕ เพิ่มผู้ใช้
@@ -87,7 +76,7 @@
                                                 <option value="staff">Staff</option>
                                                 <option value="viewer">Viewer</option>
                                             </select>
-                                            <select id="filterUserStatus" onchange="loadUsers()" style="max-width: 180px;">
+                                            <select id="filterUserStatus" onchange="loadUsers()" class="input-max-180">
                                                 <option value="">สถานะทั้งหมด</option>
                                                 <option value="1">Active</option>
                                                 <option value="0">Inactive</option>
@@ -100,7 +89,7 @@
                             <div class="page-header">
                                 <div>
                                     <h1>⚙️ ตั้งค่าระบบ</h1>
-                                    <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">ปรับแต่งลักษณะและพฤติกรรมของระบบ</p>
+                                    <p class="desc-text">ปรับแต่งลักษณะและพฤติกรรมของระบบ</p>
                                 </div>
                             </div>
                             <div class="section">
@@ -193,7 +182,7 @@
                                     </div>
                                     <div class="setting-item full-width">
                                         <label for="settingTheme">โหมดธีม</label>
-                                        <div style="display: flex; gap: 12px; margin-top: 8px;">
+                                        <div class="flex-gap-12 mt-8">
                                             <label class="theme-option">
                                                 <input type="radio" name="theme" id="settingThemeLight" value="light" checked>
                                                 <span class="theme-label">☀️ Light Mode</span>
@@ -206,13 +195,13 @@
                                     </div>
                                     <div class="setting-item full-width">
                                         <label>ลำดับเมนู</label>
-                                        <div id="menuOrderList" class="menu-order-list" style="margin-top: 12px;">
+                                        <div id="menuOrderList" class="menu-order-list mt-12">
                                             <!-- Menu items will be dynamically inserted here -->
                                         </div>
                                     </div>
                                 </div>
-                                <div style="margin-top: 24px; display: flex; gap: 12px;">
-                                    <button class="btn btn-primary" onclick="saveSettings()">
+                                <div class="flex-gap-12 mt-24">
+                                    <button id="saveSettingsBtn" class="btn btn-primary" onclick="saveSettings()">
                                         💾 บันทึกการตั้งค่า
                                     </button>
                                     <button class="btn btn-secondary" onclick="resetSettings()">
@@ -222,7 +211,7 @@
                             </div>
                             <div class="section">
                                 <h3>📊 ข้อมูลระบบ</h3>
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px;">
+                                <div class="info-grid">
                                     <div class="info-box">
                                         <span class="info-label">เวอร์ชัน</span>
                                         <span class="info-value">1.0.0</span>
@@ -247,7 +236,7 @@
                 <div class="page-header">
                     <div>
                         <h1>📊 Dashboard</h1>
-                        <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">ยินดีต้อนรับกลับมา! นี่คือภาพรวมของระบบของคุณ</p>
+                        <p class="desc-text">ยินดีต้อนรับกลับมา! นี่คือภาพรวมของระบบของคุณ</p>
                     </div>
                     <button class="btn btn-primary" onclick="loadDashboard()">
                         🔄 รีเฟรช
@@ -318,14 +307,14 @@
                 <div class="page-header">
                     <div>
                         <h1>⚙️ จัดการอะไหล่</h1>
-                        <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">บริหารและติดตามสต็อกอะไหล่ IT ของคุณ</p>
+                        <p class="desc-text">บริหารและติดตามสต็อกอะไหล่ IT ของคุณ</p>
                     </div>
-                    <div style="display: flex; gap: 12px; align-items: center;">
+                    <div class="flex-gap-12 align-center">
                         <button class="btn btn-primary admin-only" onclick="showAddSparepartModal()">
                             ➕ เพิ่มอะไหล่
                         </button>
                         <button class="btn btn-info" id="importPdfBtn" type="button">Import</button>
-                        <input type="file" id="importPdfInput" name="pdf" accept="application/pdf" style="display:none;">
+                        <input type="file" id="importPdfInput" name="pdf" accept="application/pdf" class="hidden-input">
                     </div>
                 </div>
 
@@ -337,10 +326,10 @@
                         <option value="คลังย่อย">คลังย่อย</option>
                         <option value="ห้อง IT">ห้อง IT</option>
                     </select>
-                    <input type="number" id="minQty" placeholder="จำนวนขั้นต่ำ" oninput="loadSpareparts()" style="max-width: 180px;">
-                    <input type="number" id="maxQty" placeholder="จำนวนสูงสุด" oninput="loadSpareparts()" style="max-width: 180px;">
-                    <input type="number" id="minStock" placeholder="ขั้นต่ำ min_stock" oninput="loadSpareparts()" style="max-width: 180px;">
-                    <input type="number" id="maxStock" placeholder="สูงสุด min_stock" oninput="loadSpareparts()" style="max-width: 180px;">
+                    <input type="number" id="minQty" placeholder="จำนวนขั้นต่ำ" oninput="loadSpareparts()" class="input-max-180">
+                    <input type="number" id="maxQty" placeholder="จำนวนสูงสุด" oninput="loadSpareparts()" class="input-max-180">
+                    <input type="number" id="minStock" placeholder="ขั้นต่ำ min_stock" oninput="loadSpareparts()" class="input-max-180">
+                    <input type="number" id="maxStock" placeholder="สูงสุด min_stock" oninput="loadSpareparts()" class="input-max-180">
                 </div>
 
                 <div id="sparepartsList"></div>
@@ -351,7 +340,7 @@
                 <div class="page-header">
                     <div>
                         <h1>📤 เบิก-คืนอะไหล่</h1>
-                        <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">บันทึกการเบิกและคืนอะไหล่</p>
+                        <p class="desc-text">บันทึกการเบิกและคืนอะไหล่</p>
                     </div>
                     <div>
                         <button class="btn btn-success" onclick="showTransactionModal('issue')">
@@ -369,9 +358,9 @@
                         <option value="ISSUE">📤 เบิกของ</option>
                         <option value="RETURN">📥 คืนของ</option>
                     </select>
-                    <input type="text" id="filterRequester" placeholder="ผู้เบิก/คืน" oninput="loadTransactions()" style="max-width: 200px;">
-                    <input type="date" id="filterDateFrom" onchange="loadTransactions()" style="max-width: 180px;">
-                    <input type="date" id="filterDateTo" onchange="loadTransactions()" style="max-width: 180px;">
+                    <input type="text" id="filterRequester" placeholder="ผู้เบิก/คืน" oninput="loadTransactions()" class="input-max-200">
+                    <input type="date" id="filterDateFrom" onchange="loadTransactions()" class="input-max-180">
+                    <input type="date" id="filterDateTo" onchange="loadTransactions()" class="input-max-180">
                 </div>
 
                 <div id="transactionsList"></div>
@@ -382,7 +371,7 @@
                 <div class="page-header">
                     <div>
                         <h1>📈 รายงานและส่งออก</h1>
-                        <p style="color: #6b7280; margin-top: 4px; font-size: 14px;">ดูข้อมูลสรุปและส่งออกรายงาน</p>
+                        <p class="desc-text">ดูข้อมูลสรุปและส่งออกรายงาน</p>
                     </div>
                 </div>
 
@@ -404,6 +393,16 @@
                 </div>
             </div>
 
+        <!-- Activity Logs View -->
+        <div id="activityView" class="view">
+            <div class="page-header">
+                <h1>📝 Activity Logs</h1>
+            </div>
+            <!-- ตัวกรอง (optional) -->
+            <!-- <select id="filterAction"></select>
+            <input id="filterLimit" type="number" value="50"> -->
+            <div id="activityLogsList"></div>
+        </div>
         </main>
     </div>
 

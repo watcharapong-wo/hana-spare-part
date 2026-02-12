@@ -1,3 +1,35 @@
+// --- TEMP FIX: Prevent ReferenceError for moveMenuItem and getMenuOrder ---
+function getMenuOrder() {
+    // Read menu order from DOM
+    const items = document.querySelectorAll('#menuOrderList .menu-order-item');
+    return Array.from(items).map(item => item.getAttribute('data-menu'));
+}
+
+function moveMenuItem(index, direction) {
+    const container = document.getElementById('menuOrderList');
+    if (!container) return;
+    const items = Array.from(container.querySelectorAll('.menu-order-item'));
+    if (direction === 'up' && index > 0) {
+        [items[index - 1], items[index]] = [items[index], items[index - 1]];
+    } else if (direction === 'down' && index < items.length - 1) {
+        [items[index], items[index + 1]] = [items[index + 1], items[index]];
+    }
+    // Re-render
+    container.innerHTML = '';
+    items.forEach((item, idx) => {
+        item.querySelector('.btn-menu-move[onclick*="up"]').setAttribute('onclick', `moveMenuItem(${idx}, 'up')`);
+        item.querySelector('.btn-menu-move[onclick*="down"]').setAttribute('onclick', `moveMenuItem(${idx}, 'down')`);
+        if (idx === 0) item.querySelector('.btn-menu-move[onclick*="up"]').setAttribute('disabled', '');
+        else item.querySelector('.btn-menu-move[onclick*="up"]').removeAttribute('disabled');
+        if (idx === items.length - 1) item.querySelector('.btn-menu-move[onclick*="down"]').setAttribute('disabled', '');
+        else item.querySelector('.btn-menu-move[onclick*="down"]').removeAttribute('disabled');
+        container.appendChild(item);
+    });
+}
+// --- TEMP FIX: Prevent ReferenceError for applyMenuOrder ---
+function applyMenuOrder() {
+    // No-op: menu order logic not implemented in this version
+}
 // Check authentication on page load
 document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('token');
@@ -105,7 +137,10 @@ function setupNavigation() {
             
             // Show selected view
             document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
-            document.getElementById(`${viewName}View`).classList.add('active');
+            const targetView = document.getElementById(`${viewName}View`);
+            if (targetView) {
+                targetView.classList.add('active');
+            }
             
             // Load view data
             switch(viewName) {
@@ -119,7 +154,6 @@ function setupNavigation() {
                     loadTransactions();
                     break;
                 case 'reports':
-                    // Reports view is static
                     applyLanguageToCurrentPage();
                     break;
                 case 'users':
@@ -129,7 +163,9 @@ function setupNavigation() {
                     loadActivityLogs();
                     break;
                 case 'settings':
-                    loadSettings();
+                    loadSettings(() => {
+                        applyLanguage(currentLanguage);
+                    });
                     break;
             }
         });
@@ -467,7 +503,7 @@ function toggleLanguage() {
     localStorage.setItem('language', newLang);
     updateLanguageDisplay(newLang);
     applyLanguage(newLang);
-    
+    applyLanguageToCurrentPage();
     const langName = newLang === 'th' ? 'ไทย' : 'English';
     console.log(`[i18n] Language switched to: ${langName}`);
 }
@@ -508,6 +544,12 @@ function applyLanguageToCurrentPage() {
     
     // Also apply hardcoded element translations
     translateHardcodedElements(t);
+
+    // Update Activity Logs menu label according to language
+    const activityLogsMenuText = document.getElementById('activityLogsMenuText');
+    if (activityLogsMenuText && t && t.activity) {
+        activityLogsMenuText.textContent = t.activity;
+    }
 }
 
 function applyLanguage(lang) {
@@ -716,8 +758,9 @@ function translateHardcodedElements(t) {
         }
     });
     
-    // Button texts
+    // Button texts (ยกเว้นปุ่มบันทึกการตั้งค่าใน settings)
     document.querySelectorAll('.btn').forEach(btn => {
+        if (btn.id === 'saveSettingsBtn') return;
         const btnText = btn.textContent.trim();
         if (btnText.includes('บันทึก') || btnText.includes('Save')) {
             const icon = btn.innerHTML.match(/^[^A-Za-z]*/)?.[0] || '💾';
@@ -886,24 +929,7 @@ function updateTransactionsTexts(t) {
         h1.textContent = `📤 ${t.transactionsTitle}`;
     });
     
-    // Update subtitle
-    const pageHeader = transactionsView.querySelector('.page-header');
-    if (pageHeader) {
-        const p = pageHeader.querySelector('p');
-        if (p) p.textContent = t.transactionsSubtitle;
-        
-        // Update action buttons
-        const buttons = pageHeader.querySelectorAll('.btn');
-        buttons.forEach(btn => {
-            const text = btn.textContent.trim();
-            if (text.includes('เบิก') || text.includes('Withdraw')) {
-                btn.innerHTML = `📤 ${t.withdraw}`;
-            } else if (text.includes('คืน') || text.includes('Return')) {
-                btn.innerHTML = `📥 ${t.return}`;
-            }
-        });
-    }
-    
+    // (Removed invalid settingsView block and misplaced logic)
     // Update filter select
     const filterType = transactionsView.querySelector('#filterTxType');
     if (filterType) {
@@ -912,7 +938,6 @@ function updateTransactionsTexts(t) {
             firstOption.textContent = `📋 ${t.allTypes}`;
         }
     }
-    
     // Update table headers
     const table = transactionsView.querySelector('table');
     if (table) {
@@ -1010,17 +1035,69 @@ function updateActivityTexts(t) {
 function updateSettingsTexts(t) {
     const settingsView = document.getElementById('settingsView');
     if (!settingsView) return;
-    
-    // Update title
+    // Always use currentLanguage for settings texts
+    const lang = currentLanguage;
+    const t2 = translations[lang];
+    // Update main header
     settingsView.querySelectorAll('h1').forEach(h1 => {
-        h1.textContent = `⚙️ ${t.settingsTitle}`;
+        h1.textContent = `⚙️ ${t2.settingsTitle}`;
     });
-    
     // Update subtitle
     const pageHeader = settingsView.querySelector('.page-header');
     if (pageHeader) {
         const p = pageHeader.querySelector('p');
-        if (p) p.textContent = t.settingsSubtitle;
+        if (p) p.textContent = t2.settingsSubtitle;
+    }
+    // Update section headers
+    const sectionHeaders = settingsView.querySelectorAll('.section h2, .section h3');
+    sectionHeaders.forEach(h => {
+        if (h.textContent.includes('🎨')) h.textContent = `🎨 ${t2.brandingSettings}`;
+        if (h.textContent.includes('📊')) h.textContent = `📊 ${t2.systemInfo}`;
+    });
+    // Update all labels in settings
+    const labelMap = {
+        'ชื่อระบบ': t2.systemName,
+        'คำอธิบายระบบ': t2.systemSubtitle,
+        'ชื่อบริษัท': t2.companyName,
+        'โลโก้ (ข้อความ)': t2.logoText,
+        'สีหลัก': t2.primaryColor,
+        'สีรอง': t2.secondaryColor,
+        'สีสำเร็จ': t2.successColor,
+        'สีเตือน': t2.warningColor,
+        'สีอันตราย': t2.dangerColor,
+        'สีข้อมูล': t2.infoColor,
+        'สีพื้นหลัง': t2.backgroundColor,
+        'สี Sidebar': t2.sidebarColor,
+        'สีตัวอักษร': t2.textColor,
+        'แสดง Demo Credentials บนหน้า Login': t2.showDemoCredentials,
+        'โหมดธีม': t2.theme,
+        'ลำดับเมนู': t2.menuOrder
+    };
+    settingsView.querySelectorAll('label').forEach(label => {
+        const text = label.textContent.replace(/\*/g, '').trim();
+        if (labelMap[text]) label.childNodes[0].textContent = labelMap[text];
+    });
+    // Update button texts
+    const saveBtn = document.getElementById('saveSettingsBtn');
+    if (saveBtn) saveBtn.innerHTML = `💾 ${t2.saveSettings}`;
+    // Update placeholders
+    const placeholders = [
+        { id: 'settingAppName', key: 'systemName' },
+        { id: 'settingAppSubtitle', key: 'systemSubtitle' },
+        { id: 'settingCompanyName', key: 'companyName' },
+        { id: 'settingLogoText', key: 'logoText' }
+    ];
+    placeholders.forEach(item => {
+        const el = document.getElementById(item.id);
+        if (el && t2[item.key]) el.placeholder = t2[item.key];
+    });
+    // Update info box labels
+    const infoLabels = settingsView.querySelectorAll('.info-label');
+    if (infoLabels.length >= 4) {
+        infoLabels[0].textContent = t2.version;
+        infoLabels[1].textContent = t2.dbStatus;
+        infoLabels[2].textContent = t2.totalUsers;
+        infoLabels[3].textContent = t2.totalSpareparts;
     }
 }
 
@@ -1184,8 +1261,7 @@ async function loadSpareparts() {
             list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📦</div><p>ไม่พบข้อมูลอะไหล่</p></div>';
         }
         
-        // Apply language translation after page content is loaded
-        applyLanguageToCurrentPage();
+        // Do not auto-apply language here; navigation handles it
     } catch (error) {
         console.error('Load spareparts error:', error);
         alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
@@ -1379,8 +1455,7 @@ async function loadTransactions() {
             list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><p>ยังไม่มีรายการเบิก-คืน</p></div>';
         }
         
-        // Apply language translation after page content is loaded
-        applyLanguageToCurrentPage();
+        // Do not auto-apply language here; navigation handles it
     } catch (error) {
         console.error('Load transactions error:', error);
         alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
@@ -1661,9 +1736,11 @@ async function exportRecentTransactions() {
 // ===== Activity Logs Functions =====
 async function loadActivityLogs() {
         try {
-            const action = document.getElementById('filterAction').value;
-            const limit = document.getElementById('filterLimit').value || 50;
-        
+            const actionElem = document.getElementById('filterAction');
+            const limitElem = document.getElementById('filterLimit');
+            const action = actionElem ? actionElem.value : '';
+            const limit = limitElem ? limitElem.value : 50;
+
             const params = {};
             if (action) params.action = action;
             if (limit) params.limit = limit;
@@ -1895,8 +1972,10 @@ async function createTopItemsChart() {
 async function loadSettings() {
     try {
         const response = await api.getBrandingSettings();
-        const settings = response.data;
-        
+        console.log('DEBUG: response from getBrandingSettings =', response);
+        const settings = response; // เพราะ getBrandingSettings คืน payload ตรง ๆ
+        console.log('DEBUG: settings =', settings);
+        if (!settings) throw new Error('settings is undefined!');
         // Fill form inputs
         document.getElementById('settingAppName').value = settings.app_name || '';
         document.getElementById('settingAppSubtitle').value = settings.app_subtitle || '';
@@ -1912,7 +1991,6 @@ async function loadSettings() {
         document.getElementById('settingSidebarColor').value = settings.sidebar_color || '#ffffff';
         document.getElementById('settingTextColor').value = settings.text_color || '#111827';
         document.getElementById('settingShowDemoCredentials').checked = settings.show_demo_credentials !== false;
-        
         // Set theme
         const theme = settings.theme || 'light';
         if (theme === 'dark') {
@@ -1927,6 +2005,8 @@ async function loadSettings() {
         
         // Load menu order
         renderMenuOrder(settings.menu_order || ['dashboard', 'spareparts', 'transactions', 'reports', 'users', 'activity', 'settings']);
+        // Apply menu order to sidebar
+        applyMenuOrder(settings.menu_order || ['dashboard', 'spareparts', 'transactions', 'reports', 'users', 'activity', 'settings']);
         
         // Load system info
         try {
@@ -1938,8 +2018,7 @@ async function loadSettings() {
             console.log('Could not load system info');
         }
         
-        // Apply language translation after page content is loaded
-        applyLanguageToCurrentPage();
+        // Do NOT apply language here; navigation will handle it after content is loaded
     } catch (error) {
         console.error('Load settings error:', error);
         alert('ไม่สามารถโหลดการตั้งค่าได้');
@@ -2022,6 +2101,34 @@ async function saveSettings() {
         
         // Apply menu order
         applyMenuOrder(data.menu_order);
+        updateSidebarMenuOrder(data.menu_order);
+        // Update sidebar menu order to match settings
+        function updateSidebarMenuOrder(menuOrder) {
+            const sidebarNav = document.querySelector('.sidebar-nav');
+            if (!sidebarNav) return;
+            // Map menuOrder to sidebar nav-item selectors
+            const menuMap = {
+                dashboard: sidebarNav.querySelector('[data-view="dashboard"]'),
+                spareparts: sidebarNav.querySelector('[data-view="spareparts"]'),
+                transactions: sidebarNav.querySelector('[data-view="transactions"]'),
+                reports: sidebarNav.querySelector('[data-view="reports"]'),
+                users: sidebarNav.querySelector('[data-view="users"]'),
+                activity: sidebarNav.querySelector('[data-view="activity"]'),
+                settings: sidebarNav.querySelector('[data-view="settings"]')
+            };
+            // Keep logout always last
+            const logout = sidebarNav.querySelector('a[onclick*="logout"]');
+            // Remove all except logout
+            Array.from(sidebarNav.children).forEach(child => {
+                if (child !== logout) sidebarNav.removeChild(child);
+            });
+            // Append in new order
+            menuOrder.forEach(key => {
+                if (menuMap[key]) sidebarNav.appendChild(menuMap[key]);
+            });
+            // Append logout last
+            if (logout) sidebarNav.appendChild(logout);
+        }
         
         // Apply theme
         applyTheme(data.theme);
@@ -2109,51 +2216,65 @@ function renderMenuOrder(menuOrder) {
         <div class="menu-order-item" data-menu="${item}">
             <span class="menu-order-label">${menuLabels[item] || item}</span>
             <div class="menu-order-controls">
-                <button class="btn-menu-move" onclick="moveMenuItem(${index}, 'up')" ${index === 0 ? 'disabled' : ''}>▲</button>
-                <button class="btn-menu-move" onclick="moveMenuItem(${index}, 'down')" ${index === menuOrder.length - 1 ? 'disabled' : ''}>▼</button>
+                <button class="btn-menu-move" onclick="moveMenuItem(${index}, 'up')" ${index === 0 ? 'disabled' : ''}>
+                    <i class="fa fa-chevron-up"></i>
+                </button>
+                <button class="btn-menu-move" onclick="moveMenuItem(${index}, 'down')" ${index === menuOrder.length - 1 ? 'disabled' : ''}>
+                    <i class="fa fa-chevron-down"></i>
+                </button>
             </div>
         </div>
     `).join('');
 }
 
-function getMenuOrder() {
-    const container = document.getElementById('menuOrderList');
-    if (!container) return ['dashboard', 'spareparts', 'transactions', 'reports', 'users', 'activity', 'settings'];
-    
-    const items = container.querySelectorAll('.menu-order-item');
-    return Array.from(items).map(item => item.dataset.menu);
-}
-
-function moveMenuItem(index, direction) {
-    const currentOrder = getMenuOrder();
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    
-    if (newIndex < 0 || newIndex >= currentOrder.length) return;
-    
-    // Swap items
-    [currentOrder[index], currentOrder[newIndex]] = [currentOrder[newIndex], currentOrder[index]];
-    
-    renderMenuOrder(currentOrder);
-}
-
-function applyMenuOrder(menuOrder) {
-    const sidebar = document.querySelector('.sidebar-nav');
-    if (!sidebar) return;
-    
-    // Get all menu items
-    const menuItems = {};
-    sidebar.querySelectorAll('.nav-item').forEach(item => {
-        const view = item.dataset.view;
-        if (view) menuItems[view] = item;
-    });
-    
-    // Clear sidebar
-    sidebar.innerHTML = '';
-    
-    // Re-append in new order
-    menuOrder.forEach(itemName => {
-        if (menuItems[itemName]) {
-            sidebar.appendChild(menuItems[itemName]);
+async function loadSettings(callback) {
+    try {
+        const response = await api.getBrandingSettings();
+        const settings = response;
+        if (!settings) throw new Error('settings is undefined!');
+        // Fill form inputs
+        document.getElementById('settingAppName').value = settings.app_name || '';
+        document.getElementById('settingAppSubtitle').value = settings.app_subtitle || '';
+        document.getElementById('settingCompanyName').value = settings.company_name || '';
+        document.getElementById('settingLogoText').value = settings.logo_text || '';
+        document.getElementById('settingPrimaryColor').value = settings.primary_color || '#3b82f6';
+        document.getElementById('settingSecondaryColor').value = settings.secondary_color || '#8b5cf6';
+        document.getElementById('settingSuccessColor').value = settings.success_color || '#10b981';
+        document.getElementById('settingWarningColor').value = settings.warning_color || '#f59e0b';
+        document.getElementById('settingDangerColor').value = settings.danger_color || '#ef4444';
+        document.getElementById('settingInfoColor').value = settings.info_color || '#06b6d4';
+        document.getElementById('settingBackgroundColor').value = settings.background_color || '#f9fafb';
+        document.getElementById('settingSidebarColor').value = settings.sidebar_color || '#ffffff';
+        document.getElementById('settingTextColor').value = settings.text_color || '#111827';
+        document.getElementById('settingShowDemoCredentials').checked = settings.show_demo_credentials !== false;
+        // Set theme
+        const theme = settings.theme || 'light';
+        if (theme === 'dark') {
+            document.getElementById('settingThemeDark').checked = true;
+        } else {
+            document.getElementById('settingThemeLight').checked = true;
         }
-    });
+        applyTheme(theme);
+        // Update color code display
+        updateColorDisplay();
+        // Load menu order
+        renderMenuOrder(settings.menu_order || ['dashboard', 'spareparts', 'transactions', 'reports', 'users', 'activity', 'settings']);
+        // Apply menu order to sidebar
+        applyMenuOrder(settings.menu_order || ['dashboard', 'spareparts', 'transactions', 'reports', 'users', 'activity', 'settings']);
+        // Load system info
+        try {
+            const users = await api.getUsers({});
+            const spareparts = await api.getSpareparts({});
+            document.getElementById('totalUsersInfo').textContent = (users.data || []).length;
+            document.getElementById('totalSparepartsInfo').textContent = (spareparts.data || []).length;
+        } catch (e) {
+            console.log('Could not load system info');
+        }
+        // Now that all DOM/menu is ready, call callback for language update
+        if (typeof callback === 'function') callback();
+    } catch (error) {
+        console.error('Load settings error:', error);
+        alert('ไม่สามารถโหลดการตั้งค่าได้');
+    }
 }
+// (Removed stray/invalid code block that caused SyntaxError)

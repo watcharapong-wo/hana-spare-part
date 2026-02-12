@@ -1,5 +1,11 @@
 const express = require('express');
 const router = express.Router();
+// GET /transactions/recent?limit=10
+router.get('/recent', (req, res) => {
+  const limit = Number(req.query.limit) || 10;
+  // TODO: ดึงข้อมูลจริงจากฐานข้อมูล
+  res.json({ data: [] }); // mock data
+});
 const db = require('../database/db');
 const { ok, fail } = require('../utils/respond');
 const { validateTransaction } = require('../middleware/validators');

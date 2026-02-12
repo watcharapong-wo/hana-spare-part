@@ -1,9 +1,35 @@
 const express = require('express');
 const router = express.Router();
+
 const db = require('../database/db');
 const { ok, fail } = require('../utils/respond');
 const { validateCreateSparepart, validateUpdateSparepart } = require('../middleware/validators');
 const { requireAuth, requireRole } = require('../middleware/auth');
+const { normalLimit } = require('../middleware/rate-limiter');
+
+// ✅ rate limit ควรอยู่ “ก่อน” routes ทั้งหมด
+router.use(normalLimit);
+
+// ✅ GET /spareparts/summary (ใช้ใน Dashboard)
+router.get('/summary', (req, res) => {
+  const sql = `
+    SELECT
+      (SELECT COUNT(*) FROM spareparts) AS total_items,
+      (SELECT COUNT(*) FROM spareparts WHERE quantity <= min_stock) AS low_stock_items
+  `;
+
+  db.get(sql, [], (err, row) => {
+    if (err) return res.status(500).json({ message: 'DB error', error: err.message });
+
+    return res.json({
+      message: 'Stock summary',
+      data: {
+        total_items: row?.total_items || 0,
+        low_stock_items: row?.low_stock_items || 0,
+      }
+    });
+  });
+});
 
 // GET /spareparts
 router.get('/', (req, res) => {
@@ -23,9 +49,9 @@ router.get('/', (req, res) => {
   const params = [];
   const where = [];
 
-  if (q) {
-    where.push('s.name LIKE ?');
-    params.push(`%${q}%`);
+    if (q) {
+      where.push('s.name LIKE ?');
+      params.push('%' + q + '%');
   }
 
   if (location) {
@@ -69,12 +95,14 @@ router.get('/', (req, res) => {
   });
 });
 
-// GET /spareparts/low-stock -> ของใกล้หมด (quantity <= min_stock)
+// GET /spareparts/low-stock
 router.get('/low-stock', (req, res) => {
   db.all(
-    `SELECT * FROM spareparts
-     WHERE quantity <= min_stock
-     ORDER BY (min_stock - quantity) DESC, id DESC`,
+    [
+      'SELECT * FROM spareparts',
+      'WHERE quantity <= min_stock',
+      'ORDER BY (min_stock - quantity) DESC, id DESC'
+    ].join('\n'),
     [],
     (err, rows) => {
       if (err) return res.status(500).json({ message: 'DB error', error: err.message });
@@ -87,16 +115,18 @@ router.get('/low-stock', (req, res) => {
 router.get('/:id', (req, res) => {
   const id = Number(req.params.id);
   db.get(
-    `SELECT
-        s.*,
-        cu.username AS created_by_username,
-        cu.full_name AS created_by_full_name,
-        uu.username AS updated_by_username,
-        uu.full_name AS updated_by_full_name
-     FROM spareparts s
-     LEFT JOIN users cu ON cu.id = s.created_by
-     LEFT JOIN users uu ON uu.id = s.updated_by
-     WHERE s.id = ?`,
+    [
+      'SELECT',
+      '  s.*,',
+      '  cu.username AS created_by_username,',
+      '  cu.full_name AS created_by_full_name,',
+      '  uu.username AS updated_by_username,',
+      '  uu.full_name AS updated_by_full_name',
+      'FROM spareparts s',
+      'LEFT JOIN users cu ON cu.id = s.created_by',
+      'LEFT JOIN users uu ON uu.id = s.updated_by',
+      'WHERE s.id = ?'
+    ].join('\n'),
     [id],
     (err, row) => {
       if (err) return res.status(500).json({ message: 'DB error', error: err.message });
@@ -113,13 +143,15 @@ router.post('/', requireAuth, requireRole('admin', 'staff'), validateCreateSpare
   const q = Number(quantity);
   const loc = location || '';
   const cat = category || '';
-  const part = (part_no && part_no.trim()) ? part_no.trim() : null; // NULL if empty
+  const part = (part_no && part_no.trim()) ? part_no.trim() : null;
   const min = min_stock === undefined ? 0 : Number(min_stock);
   const u = unit || '';
 
   db.run(
-    `INSERT INTO spareparts (name, quantity, location, category, part_no, min_stock, unit, created_by, updated_by, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+    [
+      'INSERT INTO spareparts (name, quantity, location, category, part_no, min_stock, unit, created_by, updated_by, updated_at)',
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))'
+    ].join(' '),
     [name.trim(), q, loc, cat, part, min, u, req.user.id, req.user.id],
     function (err) {
       if (err) return fail(res, 'DB error', 500, err.message);
@@ -150,10 +182,12 @@ router.put('/:id', requireAuth, requireRole('admin', 'staff'), validateUpdateSpa
     const newUnit = unit !== undefined ? unit : (row.unit || '');
 
     db.run(
-      `UPDATE spareparts
-       SET name = ?, quantity = ?, location = ?, category = ?, part_no = ?, min_stock = ?, unit = ?,
-           updated_by = ?, updated_at = datetime('now')
-       WHERE id = ?`,
+      [
+        'UPDATE spareparts',
+        'SET name = ?, quantity = ?, location = ?, category = ?, part_no = ?, min_stock = ?, unit = ?,',
+        '    updated_by = ?, updated_at = datetime(\'now\')',
+        'WHERE id = ?'
+      ].join(' '),
       [newName, newQty, newLoc, newCat, newPart, newMin, newUnit, req.user.id, id],
       function (err2) {
         if (err2) return fail(res, 'DB error', 500, err2.message);
@@ -175,36 +209,65 @@ router.delete('/:id', requireAuth, requireRole('admin'), (req, res) => {
     return res.status(400).json({ message: 'Invalid id' });
   }
 
-  // 1) ตรวจว่ามี sparepart ไหม
   db.get('SELECT * FROM spareparts WHERE id = ?', [id], (err, part) => {
     if (err) return res.status(500).json({ message: 'DB error', error: err.message });
     if (!part) return res.status(404).json({ message: 'Sparepart not found' });
 
-    // 2) ตรวจว่ามี transactions ไหม
-    db.get(
-      'SELECT COUNT(*) AS cnt FROM transactions WHERE sparepart_id = ?',
-      [id],
-      (err2, row) => {
-        if (err2) return res.status(500).json({ message: 'DB error', error: err2.message });
+    db.get('SELECT COUNT(*) AS cnt FROM transactions WHERE sparepart_id = ?', [id], (err2, row) => {
+      if (err2) return res.status(500).json({ message: 'DB error', error: err2.message });
 
-        if ((row?.cnt || 0) > 0) {
-          return res.status(409).json({
-            message: 'Cannot delete: sparepart has transactions. Use disable/soft-delete instead.',
-            transactions_count: row.cnt,
-          });
-        }
-
-        // 3) ถ้าไม่มี transactions -> ลบได้
-        db.run('DELETE FROM spareparts WHERE id = ?', [id], function (err3) {
-          if (err3) return res.status(500).json({ message: 'DB error', error: err3.message });
-          return res.json({ message: 'Sparepart deleted', data: part });
+      if ((row?.cnt || 0) > 0) {
+        return res.status(409).json({
+          message: 'Cannot delete: sparepart has transactions. Use disable/soft-delete instead.',
+          transactions_count: row.cnt,
         });
       }
-    );
+
+      db.run('DELETE FROM spareparts WHERE id = ?', [id], function (err3) {
+        if (err3) return res.status(500).json({ message: 'DB error', error: err3.message });
+        return res.json({ message: 'Sparepart deleted', data: part });
+      });
+    });
   });
+});
+// ===== Stock Summary =====
+router.get('/summary', requireAuth, (req, res) => {
+  try {
+    const items = db.prepare('SELECT quantity, min_stock FROM spareparts').all();
+
+    const totalItems = items.length;
+    const totalQuantity = items.reduce((a, it) => a + (Number(it.quantity) || 0), 0);
+    const lowStockItems = items.filter(it => Number(it.quantity) < Number(it.min_stock)).length;
+
+    res.json({
+      message: 'Stock summary',
+      data: {
+        totalItems,
+        totalQuantity,
+        lowStockItems
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to get summary', error: err.message });
+  }
+});
+// ===== Low Stock =====
+router.get('/low-stock', requireAuth, (req, res) => {
+  try {
+    const items = db.prepare(`
+      SELECT *
+      FROM spareparts
+      WHERE quantity < min_stock
+      ORDER BY quantity ASC
+    `).all();
+
+    res.json({
+      message: 'Low stock list',
+      data: items
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to get low stock', error: err.message });
+  }
 });
 
 module.exports = router;
-const { normalLimit } = require('../middleware/rate-limiter');
-
-router.use(normalLimit);

@@ -1,0 +1,34 @@
+[ERROR] Failed to mount /import-pdf: Error: \\?\D:\Project Spare HANALPN\it-spareparts\node_modules\better-sqlite3\build\Release\better_sqlite3.node is not a valid Win32 application.
+\\?\D:\Project Spare HANALPN\it-spareparts\node_modules\better-sqlite3\build\Release\better_sqlite3.node
+    at Object..node (node:internal/modules/cjs/loader:1963:18)
+    at Module.load (node:internal/modules/cjs/loader:1525:32)
+    at Module._load (node:internal/modules/cjs/loader:1327:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.require (node:internal/modules/cjs/loader:1548:12)
+    at require (node:internal/modules/helpers:152:16)
+    at bindings (D:\Project Spare HANALPN\it-spareparts\node_modules\bindings\bindings.js:112:48)
+    at new Database (D:\Project Spare HANALPN\it-spareparts\node_modules\better-sqlite3\lib\database.js:48:64)
+    at Object.<anonymous> (D:\Project Spare HANALPN\it-spareparts\database\db.js:8:16) {
+  code: 'ERR_DLOPEN_FAILED'
+}
+D:\Project Spare HANALPN\it-spareparts\node_modules\bindings\bindings.js:121
+        throw e;
+        ^
+
+Error: \\?\D:\Project Spare HANALPN\it-spareparts\node_modules\better-sqlite3\build\Release\better_sqlite3.node is not a valid Win32 application.
+\\?\D:\Project Spare HANALPN\it-spareparts\node_modules\better-sqlite3\build\Release\better_sqlite3.node
+    at Object..node (node:internal/modules/cjs/loader:1963:18)
+    at Module.load (node:internal/modules/cjs/loader:1525:32)
+    at Module._load (node:internal/modules/cjs/loader:1327:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.require (node:internal/modules/cjs/loader:1548:12)
+    at require (node:internal/modules/helpers:152:16)
+    at bindings (D:\Project Spare HANALPN\it-spareparts\node_modules\bindings\bindings.js:112:48)
+    at new Database (D:\Project Spare HANALPN\it-spareparts\node_modules\better-sqlite3\lib\database.js:48:64)
+    at Object.<anonymous> (D:\Project Spare HANALPN\it-spareparts\database\db.js:8:16) {
+  code: 'ERR_DLOPEN_FAILED'
+}
+
+Node.js v24.13.1

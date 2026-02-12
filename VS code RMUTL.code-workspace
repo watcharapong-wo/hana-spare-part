@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../VS code RMUTL"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"liveServer.settings.port": 5501
+	}
+}

@@ -1,5 +1,5 @@
-
 // public/js/api.js
+
 function getToken() {
   return localStorage.getItem("token") || "";
 }
@@ -44,9 +44,10 @@ async function apiFetch(path, options = {}) {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const API_BASE = "http://127.0.0.1:3001";
+ const API_BASE = "http://127.0.0.1:3001";
 
-  const res = await fetch(API_BASE + path, { ...options, headers });
+const res = await fetch(API_BASE + path, { ...options, headers });
+
 
   // no content
   if (res.status === 204) return null;
@@ -58,13 +59,6 @@ async function apiFetch(path, options = {}) {
     const msg =
       (payload && payload.message) ||
       `Request failed (${res.status})`;
-    // ถ้า token ไม่ valid ให้ redirect ไป login
-    if (msg && msg.toLowerCase().includes('invalid token')) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = 'index.html';
-      throw new Error('Invalid token');
-    }
     throw new Error(msg);
   }
 
@@ -72,20 +66,6 @@ async function apiFetch(path, options = {}) {
 }
 
 const api = {
-      deleteUser: async (id) => {
-        const payload = await apiFetch(`/users/${encodeURIComponent(id)}`, {
-          method: 'DELETE',
-        });
-        return payload?.data || payload;
-      },
-    // ---- Users ----
-    createUser: async (data) => {
-      const payload = await apiFetch('/users', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      return payload?.data || payload;
-    },
   // ---- Auth ----
   login: async (username, password) => {
     const payload = await apiFetch("/auth/login", {
@@ -132,6 +112,7 @@ const api = {
   return sum.low_stock || [];
 },
 getRecentTransactions: async (limit = 10) => {
+  // backend อาจยังไม่มี endpoint นี้ -> ให้ list ว่างเพื่อไม่ให้ dashboard ล้ม
   try {
     const payload = await apiFetch(`/transactions/recent?limit=${encodeURIComponent(limit)}`, { method: "GET" });
     return payload || { data: [] };
@@ -139,26 +120,6 @@ getRecentTransactions: async (limit = 10) => {
     return { data: [] };
   }
 },
-
-  getTransactions: async (params = {}) => {
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && String(v).trim() !== '') qs.set(k, v);
-    }
-    const url = qs.toString() ? '/transactions?' + qs.toString() : '/transactions';
-    const payload = await apiFetch(url, { method: 'GET' });
-    return payload;
-  },
-
-  getUsers: async (params = {}) => {
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && String(v).trim() !== '') qs.set(k, v);
-    }
-    const url = qs.toString() ? '/users?' + qs.toString() : '/users';
-    const payload = await apiFetch(url, { method: 'GET' });
-    return payload;
-  },
 
   // ---- Spareparts ----
   getSpareparts: async (params = {}) => {
@@ -199,39 +160,6 @@ getRecentTransactions: async (limit = 10) => {
       method: "DELETE",
     });
     return payload?.data || payload;
-  },
-
-  getBrandingSettings: async () => {
-    // คืน payload ตรง ๆ (ไม่ใช่ payload.data)
-    return await apiFetch('/settings/branding', { method: 'GET' });
-  },
-
-  saveBrandingSettings: async (data) => {
-    // ส่งข้อมูลไป backend (POST)
-    return await apiFetch('/settings/branding', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  // ---- Activity Logs ----
-  getActivityLogs: async (params = {}) => {
-    // เลือก endpoint ตาม role
-    const userStr = localStorage.getItem('user');
-    let endpoint = '/activity-logs';
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        if (user.role !== 'admin') endpoint = '/activity-logs/my';
-      } catch (e) {}
-    }
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && String(v).trim() !== '') qs.set(k, v);
-    }
-    const url = qs.toString() ? `${endpoint}?${qs.toString()}` : endpoint;
-    const payload = await apiFetch(url, { method: 'GET' });
-    return payload;
   },
 };
 
