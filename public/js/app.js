@@ -1,302 +1,127 @@
-// --- TEMP FIX: Prevent ReferenceError for moveMenuItem and getMenuOrder ---
-function getMenuOrder() {
-    // Read menu order from DOM
-    const items = document.querySelectorAll('#menuOrderList .menu-order-item');
-    return Array.from(items).map(item => item.getAttribute('data-menu'));
-}
+// ===== NAVIGATION (ONLY ONE) =====
+(function () {
+    const map = {
+        dashboard: "dashboardView",
+        spareparts: "sparepartsView",
+        transactions: "transactionsView",
+        reports: "reportsView",
+        users: "usersView",
+        settings: "settingsView",
+        activity: "activityView",
+    };
 
-function moveMenuItem(index, direction) {
-    const container = document.getElementById('menuOrderList');
-    if (!container) return;
-    const items = Array.from(container.querySelectorAll('.menu-order-item'));
-    if (direction === 'up' && index > 0) {
-        [items[index - 1], items[index]] = [items[index], items[index - 1]];
-    } else if (direction === 'down' && index < items.length - 1) {
-        [items[index], items[index + 1]] = [items[index + 1], items[index]];
-    }
-    // Re-render
-    container.innerHTML = '';
-    items.forEach((item, idx) => {
-        item.querySelector('.btn-menu-move[onclick*="up"]').setAttribute('onclick', `moveMenuItem(${idx}, 'up')`);
-        item.querySelector('.btn-menu-move[onclick*="down"]').setAttribute('onclick', `moveMenuItem(${idx}, 'down')`);
-        if (idx === 0) item.querySelector('.btn-menu-move[onclick*="up"]').setAttribute('disabled', '');
-        else item.querySelector('.btn-menu-move[onclick*="up"]').removeAttribute('disabled');
-        if (idx === items.length - 1) item.querySelector('.btn-menu-move[onclick*="down"]').setAttribute('disabled', '');
-        else item.querySelector('.btn-menu-move[onclick*="down"]').removeAttribute('disabled');
-        container.appendChild(item);
-    });
-}
-// --- TEMP FIX: Prevent ReferenceError for applyMenuOrder ---
-function applyMenuOrder() {
-    // No-op: menu order logic not implemented in this version
-}
-// Check authentication on page load
-document.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
-    
-    if (!token || !userStr) {
-        window.location.href = 'index.html';
-        return;
-    }
-    
-    const user = JSON.parse(userStr);
-    
-    // Display user info in sidebar
-    const userFullNameElem = document.getElementById('userFullName');
-    if (userFullNameElem) userFullNameElem.textContent = user.full_name || user.username;
-    const roleElem = document.getElementById('userRole');
-    if (roleElem) {
-        roleElem.textContent = user.role;
-        roleElem.className = `badge ${user.role}`;
-    }
-    // Display user info in header
-    const headerUserNameElem = document.getElementById('headerUserName');
-    if (headerUserNameElem) headerUserNameElem.textContent = user.full_name || user.username;
-    const headerRoleElem = document.getElementById('headerUserRole');
-    if (headerRoleElem) {
-        headerRoleElem.textContent = user.role;
-        headerRoleElem.className = `badge-sm ${user.role}`;
-    }
-    
-    // Initialize theme and language
-    initializeHeaderControls();
-    
-    // Hide admin-only elements for non-admin
-    if (user.role !== 'admin') {
-        document.querySelectorAll('.admin-only').forEach(el => {
-            el.style.display = 'none';
+    function showView(viewKey) {
+        document.querySelectorAll("#sidebarNav .nav-item").forEach((a) => {
+            a.classList.toggle("active", a.dataset.view === viewKey);
         });
-    }
-    
-    // Setup navigation
-    setupNavigation();
-    
-    // Load dashboard by default
-    loadDashboard();
-});
 
-// Global variable to track current language
-let currentLanguage = localStorage.getItem('language') || 'th';
+        document.querySelectorAll("main .view").forEach((v) => v.classList.remove("active"));
 
-// PDF Import: Handle PDF file upload
-document.addEventListener('DOMContentLoaded', () => {
-    const importPdfInput = document.getElementById('importPdfInput');
-    const importPdfBtn = document.getElementById('importPdfBtn');
-    if (importPdfBtn && importPdfInput) {
-        importPdfBtn.addEventListener('click', () => {
-            importPdfInput.click();
-        });
-    }
-    if (importPdfInput) {
-        importPdfInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            // Prepare form data
-            const formData = new FormData();
-            formData.append('pdf', file);
-            // Show loading indicator (optional)
-            try {
-                const res = await fetch('/api/import-pdf', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
-                    }
-                });
-                const result = await res.json();
-                if (res.ok) {
-                    alert('นำเข้าข้อมูลจาก PDF สำเร็จ!');
-                    // อาจจะ reload ข้อมูลอะไหล่ใหม่
-                    if (typeof loadSpareparts === 'function') loadSpareparts();
-                } else {
-                    let msg = 'เกิดข้อผิดพลาด: ' + (result.message || 'ไม่สามารถนำเข้า PDF ได้');
-                    if (result.error) msg += '\nerror: ' + result.error;
-                    if (result.ocrError) msg += '\nocrError: ' + result.ocrError;
-                    if (result.rawText) msg += '\nrawText: ' + result.rawText;
-                    alert(msg);
-                }
-            } catch (err) {
-                alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์');
-            }
-            // Reset input
-            importPdfInput.value = '';
-        });
-    }
-});
+        const id = map[viewKey];
+        const target = id ? document.getElementById(id) : null;
+        if (target) target.classList.add("active");
 
-function setupNavigation() {
-    document.querySelectorAll('.nav-item[data-view]').forEach(item => {
-        item.addEventListener('click', (e) => {
+        if (viewKey === "dashboard" && window.loadDashboard) window.loadDashboard();
+        if (viewKey === "spareparts" && window.loadSpareparts) window.loadSpareparts();
+        if (viewKey === "transactions" && window.loadTransactions) window.loadTransactions();
+        if (viewKey === "reports" && window.loadReports) window.loadReports?.();
+        if (viewKey === "users" && window.loadUsers) window.loadUsers();
+        if (viewKey === "activity" && window.loadActivityLogs) window.loadActivityLogs();
+        if (viewKey === "settings" && window.loadSettings) window.loadSettings();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const nav = document.getElementById("sidebarNav");
+        if (!nav) return;
+
+        nav.addEventListener("click", (e) => {
+            const a = e.target.closest(".nav-item");
+            if (!a) return;
+            if (a.id === "logoutMenuBtn") return;
+
+            const viewKey = a.dataset.view;
+            if (!viewKey) return;
+
             e.preventDefault();
-            const viewName = item.dataset.view;
-            
-            // Update active nav
-            document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
-            item.classList.add('active');
-            
-            // Show selected view
-            document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
-            const targetView = document.getElementById(`${viewName}View`);
-            if (targetView) {
-                targetView.classList.add('active');
-            }
-            
-            // Load view data
-            switch(viewName) {
-                case 'dashboard':
-                    loadDashboard();
-                    break;
-                case 'spareparts':
-                    loadSpareparts();
-                    break;
-                case 'transactions':
-                    loadTransactions();
-                    break;
-                case 'reports':
-                    applyLanguageToCurrentPage();
-                    break;
-                case 'users':
-                    loadUsers();
-                    break;
-                case 'activity':
-                    loadActivityLogs();
-                    break;
-                case 'settings':
-                    loadSettings(() => {
-                        applyLanguage(currentLanguage);
-                    });
-                    break;
-            }
+            showView(viewKey);
         });
-    });
-}
 
-// ===== Header Controls =====
-const translations = {
-    th: {
-        // Header
-        appTitle: 'IT Spare Parts Management',
-        
-        // Menu
-        dashboard: 'Dashboard',
-        spareparts: 'จัดการอะไหล่',
-        transactions: 'เบิก-คืนอะไหล่',
-        reports: 'รายงาน & ส่งออก',
-        users: 'จัดการผู้ใช้',
-        activity: 'ประวัติกิจกรรม',
-        settings: 'ตั้งค่าระบบ',
-        logout: 'ออกจากระบบ',
-        
-        // Dashboard
-        dashboardTitle: 'Dashboard',
-        dashboardSubtitle: 'ยินดีต้อนรับกลับมา! นี่คือภาพรวมของระบบของคุณ',
-        refresh: 'รีเฟรช',
-        totalItems: 'รายการทั้งหมด',
-        totalQuantity: 'จำนวนทั้งหมด',
-        lowStockItems: 'อะไหล่ใกล้หมด',
-        alertsTitle: 'การแจ้งเตือนสต็อก',
-        recentTransactionsTitle: 'รายการล่าสุด',
-        stockAnalysisTitle: 'วิเคราะห์สต็อก',
-        transactionTrendsTitle: 'แนวโน้มการเบิก-คืน',
-        topItemsTitle: 'อะไหล่ยอดนิยม',
-        
-        // Spareparts
-        sparepartsTitle: 'จัดการอะไหล่',
-        sparepartsSubtitle: 'จัดการข้อมูลอะไหล่ทั้งหมดในระบบ',
-        addSparepart: 'เพิ่มอะไหล่ใหม่',
-        searchPlaceholder: 'ค้นหาชื่ออะไหล่...',
-        filterByLocation: 'ตำแหน่ง',
-        allLocations: 'ทั้งหมด',
-        filterByStatus: 'สถานะ',
-        allStatus: 'ทั้งหมด',
-        normal: 'ปกติ',
-        low: 'ใกล้หมด',
-        outOfStock: 'หมดสต็อก',
-        
-        // Transactions
-        transactionsTitle: 'เบิก-คืนอะไหล่',
-        transactionsSubtitle: 'บันทึกการเบิกและคืนอะไหล่',
-        newTransaction: 'รายการใหม่',
-        filterByType: 'ประเภท',
-        allTypes: 'ทั้งหมด',
-        withdraw: 'เบิก',
-        return: 'คืน',
-        pending: 'รอดำเนินการ',
-        approved: 'อนุมัติ',
-        rejected: 'ไม่อนุมัติ',
-        
-        // Reports
-        reportsTitle: 'รายงาน & ส่งออก',
-        reportsSubtitle: 'ส่งออกข้อมูลและสร้างรายงาน',
-        exportStockSummary: 'ส่งออกสรุปสต็อก',
-        exportTransactions: 'ส่งออกรายการเบิก-คืน',
-        selectDateRange: 'เลือกช่วงวันที่',
-        from: 'จาก',
-        to: 'ถึง',
-        generateReport: 'สร้างรายงาน',
-        
-        // Users
-        usersTitle: 'จัดการผู้ใช้',
-        usersSubtitle: 'จัดการบัญชีผู้ใช้งานระบบ',
-        addUser: 'เพิ่มผู้ใช้ใหม่',
-        filterByRole: 'บทบาท',
-        allRoles: 'ทั้งหมด',
-        admin: 'ผู้ดูแลระบบ',
-        staff: 'พนักงาน',
-        viewer: 'ผู้ดู',
-        username: 'ชื่อผู้ใช้',
-        password: 'รหัสผ่าน',
-        fullName: 'ชื่อ-นามสกุล',
-        email: 'อีเมล',
-        role: 'บทบาท',
-        createdAt: 'วันที่สร้าง',
-        
-        // Activity Logs
-        activityTitle: 'ประวัติกิจกรรม',
-        activitySubtitle: 'ติดตามกิจกรรมผู้ใช้ในระบบ',
-        user: 'ผู้ใช้',
-        action: 'การกระทำ',
-        details: 'รายละเอียด',
-        timestamp: 'เวลา',
-        
-        // Settings
-        settingsTitle: 'ตั้งค่าระบบ',
-        settingsSubtitle: 'ปรับแต่งการตั้งค่าระบบ',
-        brandingSettings: 'การตั้งค่าแบรนด์',
-        systemName: 'ชื่อระบบ',
-        systemSubtitle: 'คำอธิบายระบบ',
-        companyName: 'ชื่อบริษัท',
-        logoText: 'โลโก้ (ข้อความ)',
-        primaryColor: 'สีหลัก',
-        secondaryColor: 'สีรอง',
-        successColor: 'สีสำเร็จ',
-        warningColor: 'สีเตือน',
-        dangerColor: 'สีอันตราย',
-        infoColor: 'สีข้อมูล',
-        backgroundColor: 'สีพื้นหลัง',
-        sidebarColor: 'สี Sidebar',
-        textColor: 'สีตัวอักษร',
-        theme: 'โหมดธีม',
-        lightMode: 'Light Mode',
-        darkMode: 'Dark Mode',
-        menuOrder: 'ลำดับเมนู',
-        showDemoCredentials: 'แสดง Demo Credentials บนหน้า Login',
-        systemInfo: 'ข้อมูลระบบ',
-        version: 'เวอร์ชัน',
-        dbStatus: 'สถานะฐานข้อมูล',
-        totalUsers: 'ผู้ใช้ทั้งหมด',
-        totalSpareparts: 'รายการอะไหล่',
-        
-        // Buttons
-        save: 'บันทึก',
-        cancel: 'ยกเลิก',
-        edit: 'แก้ไข',
-        delete: 'ลบ',
-        close: 'ปิด',
-        search: 'ค้นหา',
-        export: 'ส่งออก',
-        import: 'นำเข้า',
+        showView("dashboard");
+    });
+})();
+// ===== API BASE URL & apiFetch helper =====
+window.API_BASE = "http://127.0.0.1:3001";
+const API_BASE = window.API_BASE;
+
+async function apiFetch(path, options = {}) {
+    const token = localStorage.getItem("token") || "";
+
+    const isFormData = options.body instanceof FormData;
+
+    // clone headers (อย่าใส่ Content-Type ถ้าเป็น FormData)
+    // ...existing code...
+
+    // Only one robust editUser definition
+// Only one robust editUser definition
+async function editUser(id) {
+        // ====== EDIT USER (ONLY ONE) ======
+        window.editUser = async function editUser(id) {
+            try {
+                const result = await getApi().getUsers();
+                const foundUser = (result.data || []).find(u => Number(u.id) === Number(id));
+                if (!foundUser) return alert("ไม่พบผู้ใช้");
+
+                const modalBody = document.getElementById("modalBody");
+                modalBody.innerHTML = `
+                    <h2 class="mb-2">✏️ แก้ไขผู้ใช้</h2>
+                    <form id="editUserForm">
+                        <div class="form-group">
+                            <label>Username</label>
+                            <input type="text" value="${foundUser.username}" disabled />
+                        </div>
+
+                        <div class="form-group">
+                            <label>Password ใหม่ (เว้นว่างหากไม่ต้องการเปลี่ยน)</label>
+                            <input type="password" name="password" minlength="8" />
+                        </div>
+
+                        <div class="form-group">
+                            <label>ชื่อ-นามสกุล</label>
+                            <input type="text" name="full_name" value="${foundUser.full_name || ""}" />
+                        </div>
+
+                        <div class="form-group">
+                            <label>Role *</label>
+                            <select name="role" required>
+                                <option value="admin" ${foundUser.role === "admin" ? "selected" : ""}>Admin</option>
+                                <option value="coadmin" ${foundUser.role === "coadmin" ? "selected" : ""}>Co-Admin</option>
+                                <option value="staff" ${foundUser.role === "staff" ? "selected" : ""}>Staff</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex;gap:12px;">
+                            <button type="submit" class="btn btn-primary">💾 บันทึก</button>
+                            <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                        </div>
+                    </form>
+                `;
+
+                document.getElementById("editUserForm").addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const data = Object.fromEntries(new FormData(e.target));
+                    if (!data.password) delete data.password;
+
+                    await getApi().updateUser(Number(id), data);
+                    closeModal();
+                    if (window.loadUsers) window.loadUsers();
+                    alert("แก้ไขผู้ใช้สำเร็จ");
+                });
+
+                showModal();
+            } catch (err) {
+                alert("เกิดข้อผิดพลาด: " + err.message);
+            }
+        };
         reset: 'รีเซ็ต',
         saveSettings: 'บันทึกการตั้งค่า',
         
@@ -483,72 +308,158 @@ function initializeHeaderControls() {
     console.log(`[i18n] Initialized language to: ${savedLang}`);
 }
 
-function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    applyTheme(newTheme);
-}
+async function editUser(id) {
+// Only one robust editUser definition
+async function editUser(id) {
+    try {
+        const result = await getApi().getUsers();
+        const foundUser = (result.data || []).find(u => Number(u.id) === Number(id));
+        if (!foundUser) return alert("ไม่พบผู้ใช้");
 
-function updateThemeIcon(theme) {
-    const icon = document.getElementById('themeIcon');
-    if (icon) {
-        icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+        const modalBody = document.getElementById("modalBody");
+        modalBody.innerHTML = `
+            <h2 class="mb-2">✏️ แก้ไขผู้ใช้</h2>
+            <form id="editUserForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" value="${foundUser.username}" disabled />
+                </div>
+
+                <div class="form-group">
+                    <label>Password ใหม่ (เว้นว่างหากไม่ต้องการเปลี่ยน)</label>
+                    <input type="password" name="password" minlength="8" />
+                </div>
+
+                <div class="form-group">
+                    <label>ชื่อ-นามสกุล</label>
+                    <input type="text" name="full_name" value="${foundUser.full_name || ''}" />
+                </div>
+
+                <div class="form-group">
+                    <label>Role *</label>
+                    <select name="role" required>
+                        <option value="admin" ${foundUser.role === 'admin' ? 'selected' : ''}>Admin</option>
+                        <option value="coadmin" ${foundUser.role === 'coadmin' ? 'selected' : ''}>Co-Admin</option>
+                        <option value="staff" ${foundUser.role === 'staff' ? 'selected' : ''}>Staff</option>
+                    </select>
+                </div>
+
+                <div style="display:flex;gap:12px;">
+                    <button type="submit" class="btn btn-primary">💾 บันทึก</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                </div>
+            </form>
+        `;
+
+        document.getElementById("editUserForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            if (!data.password) delete data.password;
+
+            await getApi().updateUser(Number(id), data);
+            closeModal();
+            loadUsers();
+            alert("แก้ไขผู้ใช้สำเร็จ");
+        });
+
+        showModal();
+    } catch (error) {
+        alert("เกิดข้อผิดพลาด: " + error.message);
     }
 }
-
-function toggleLanguage() {
-    const oldLang = currentLanguage;
-    const newLang = oldLang === 'th' ? 'en' : 'th';
-    currentLanguage = newLang;
-    localStorage.setItem('language', newLang);
-    updateLanguageDisplay(newLang);
-    applyLanguage(newLang);
-    applyLanguageToCurrentPage();
-    const langName = newLang === 'th' ? 'ไทย' : 'English';
-    console.log(`[i18n] Language switched to: ${langName}`);
-}
-
-function updateLanguageDisplay(lang) {
-    const langText = document.getElementById('languageText');
-    if (langText) {
-        langText.textContent = lang === 'th' ? 'EN' : 'TH';
-    }
-}
-
 function applyLanguageToCurrentPage() {
-    // Find which view is currently active and apply translations
-    const t = translations[currentLanguage];
-    
-    const activeView = document.querySelector('.view.active');
-    if (!activeView) return;
-    
-    const viewId = activeView.id;
-    console.log(`[i18n] Applying ${currentLanguage} translations to: ${viewId}`);
-    
-    // Apply translations based on which page is visible
-    if (viewId === 'dashboardView') {
-        updateDashboardTexts(t);
-    } else if (viewId === 'sparepartsView') {
-        updateSparepartsTexts(t);
-    } else if (viewId === 'transactionsView') {
-        updateTransactionsTexts(t);
-    } else if (viewId === 'reportsView') {
-        updateReportsTexts(t);
-    } else if (viewId === 'usersView') {
-        updateUsersTexts(t);
-    } else if (viewId === 'activityView') {
-        updateActivityTexts(t);
-    } else if (viewId === 'settingsView') {
-        updateSettingsTexts(t);
-    }
-    
-    // Also apply hardcoded element translations
+    const t = translations[currentLanguage] || translations.th;
+
+    const activeView = document.querySelector(".view.active");
+    const viewId = activeView?.id || "";
+
+    if (viewId === "dashboardView") updateDashboardTexts(t);
+    else if (viewId === "sparepartsView") updateSparepartsTexts(t);
+    else if (viewId === "transactionsView") updateTransactionsTexts(t);
+    else if (viewId === "reportsView") updateReportsTexts(t);
+    else if (viewId === "usersView") updateUsersTexts(t);
+    else if (viewId === "activityView") updateActivityTexts(t);
+    else if (viewId === "settingsView") updateSettingsTexts(t);
+
     translateHardcodedElements(t);
 
-    // Update Activity Logs menu label according to language
-    const activityLogsMenuText = document.getElementById('activityLogsMenuText');
-    if (activityLogsMenuText && t && t.activity) {
-        activityLogsMenuText.textContent = t.activity;
+    const activityLogsMenuText = document.getElementById("activityLogsMenuText");
+    if (activityLogsMenuText) activityLogsMenuText.textContent = t.activity;
+}
+
+// ===== Custom Fields Management (Settings) =====
+// (Fixed: event handler and modal logic are now in showAddCustomFieldModal)
+// ...existing code...
+
+async function editCustomField(id) {
+    // โหลดข้อมูลฟิลด์เดิม
+    try {
+        const result = await apiFetch('/custom_fields');
+        const field = (result.data || []).find(f => f.id === id);
+        if (!field) return alert('ไม่พบฟิลด์');
+        const modalBody = document.getElementById('modalBody');
+        modalBody.innerHTML = `
+            <h2>✏️ แก้ไขฟิลด์</h2>
+            <form id="editCustomFieldForm">
+                <div class="form-group"><label>ชื่อฟิลด์ *</label><input type="text" name="name" value="${field.name}" required /></div>
+                <div class="form-group"><label>ประเภท *</label>
+                    <select name="field_type" required>
+                        <option value="text" ${field.field_type==='text'?'selected':''}>ข้อความ</option>
+                        <option value="number" ${field.field_type==='number'?'selected':''}>ตัวเลข</option>
+                        <option value="date" ${field.field_type==='date'?'selected':''}>วันที่</option>
+                        <option value="select" ${field.field_type==='select'?'selected':''}>ตัวเลือก</option>
+                        <option value="boolean" ${field.field_type==='boolean'?'selected':''}>ใช่/ไม่ใช่</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>จำเป็นต้องกรอก</label><input type="checkbox" name="is_required" value="1" ${field.is_required ? 'checked' : ''} /></div>
+                <div style="display:flex;gap:12px;">
+                    <button type="submit" class="btn btn-primary">บันทึก</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                </div>
+            </form>
+        `;
+        document.getElementById('editCustomFieldForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            data.is_required = data.is_required ? 1 : 0;
+            try {
+                await apiFetch(`/custom_fields/${id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                    },
+                    body: JSON.stringify(data)
+                });
+                closeModal();
+                loadCustomFields();
+                alert('แก้ไขฟิลด์สำเร็จ');
+            } catch (err) {
+                alert('เกิดข้อผิดพลาด: ' + err.message);
+            }
+        });
+        showModal();
+    } catch (err) {
+        alert('เกิดข้อผิดพลาด: ' + err.message);
+    }
+}
+
+async function deleteCustomField(id) {
+    if (!confirm('ต้องการลบฟิลด์นี้ใช่หรือไม่?')) return;
+    try {
+        await apiFetch(`/custom_fields/${id}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+            },
+            body: JSON.stringify({ is_active: 0 })
+        });
+        loadCustomFields();
+        alert('ลบฟิลด์สำเร็จ');
+    } catch (err) {
+        alert('เกิดข้อผิดพลาด: ' + err.message);
     }
 }
 
@@ -556,31 +467,37 @@ function applyLanguage(lang) {
     const t = translations[lang];
     
     // Update header title
-    const headerTitle = document.querySelector('.header-title');
+    const headerTitle = document.getElementById('headerTitle');
     if (headerTitle) headerTitle.textContent = t.appTitle;
-    
+
     // Update sidebar header
     const sidebarTitle = document.querySelector('.sidebar-header h2');
     if (sidebarTitle) sidebarTitle.textContent = t.appTitle;
-    
-    // Update menu items
-    const menuItems = {
-        'dashboard': t.dashboard,
-        'spareparts': t.spareparts,
-        'transactions': t.transactions,
-        'reports': t.reports,
-        'users': t.users,
-        'activity': t.activity,
-        'settings': t.settings
-    };
-    
-    Object.keys(menuItems).forEach(view => {
-        const menuItem = document.querySelector(`.nav-item[data-view="${view}"]`);
-        if (menuItem) {
-            const icon = menuItem.querySelector('span').textContent;
-            menuItem.innerHTML = `<span>${icon}</span> ${menuItems[view]}`;
-        }
-    });
+
+    // Update sidebar menu items by ID
+    const sidebarDashboardText = document.getElementById('sidebarDashboardText');
+    if (sidebarDashboardText) sidebarDashboardText.textContent = t.dashboard;
+    const sidebarSparepartsText = document.getElementById('sidebarSparepartsText');
+    if (sidebarSparepartsText) sidebarSparepartsText.textContent = t.spareparts;
+    const sidebarTransactionsText = document.getElementById('sidebarTransactionsText');
+    if (sidebarTransactionsText) sidebarTransactionsText.textContent = t.transactions;
+    const sidebarReportsText = document.getElementById('sidebarReportsText');
+    if (sidebarReportsText) sidebarReportsText.textContent = t.reports;
+    const sidebarUsersText = document.getElementById('sidebarUsersText');
+    if (sidebarUsersText) sidebarUsersText.textContent = t.users;
+    const sidebarSettingsText = document.getElementById('sidebarSettingsText');
+    if (sidebarSettingsText) sidebarSettingsText.textContent = t.settings;
+    const sidebarLogoutText = document.getElementById('sidebarLogoutText');
+    if (sidebarLogoutText) sidebarLogoutText.textContent = t.logout;
+    // Activity Logs menu handled below
+
+    // Update logout menu text
+    const logoutMenu = document.querySelector('.sidebar-nav .nav-item[onclick*="logout"]');
+    if (logoutMenu) {
+        const icon = logoutMenu.querySelector('span') ? logoutMenu.querySelector('span').textContent : '🚪';
+        logoutMenu.innerHTML = `<span>${icon}</span> ${t.logout}`;
+        logoutMenu.setAttribute('onclick', 'logout()');
+    }
     
     // Translate all static content
     translateStaticContent(lang);
@@ -696,141 +613,7 @@ function translateStaticContent(lang) {
     translateHardcodedElements(t);
 }
 
-function translateHardcodedElements(t) {
-    // Translate all visible text nodes
-    const allElements = document.querySelectorAll('*');
     
-    // Translation mappings for common text
-    const textMap = {
-        'th': {
-            'ชื่ออะไหล่': t.partName || 'ชื่ออะไหล่',
-            'จำนวนคงเหลือ': t.quantityRemaining || 'จำนวนคงเหลือ',
-            'จำนวนขั้นต่ำ': t.minStock || 'จำนวนขั้นต่ำ',
-            'สถานที่': t.location || 'สถานที่',
-            'สถานที่จัดเก็บ': t.storageLocation || 'สถานที่จัดเก็บ',
-            'ทุกสถานที่': t.allLocations || 'ทุกสถานที่',
-            'เพิ่มอะไหล่': t.addSparepart || 'เพิ่มอะไหล่',
-            'เบิกของ': t.withdraw || 'เบิกของ',
-            'คืนของ': t.return || 'คืนของ'
-        },
-        'en': {
-            'ชื่ออะไหล่': t.partName || 'Part Name',
-            'จำนวนคงเหลือ': t.quantityRemaining || 'Quantity Remaining',
-            'จำนวนขั้นต่ำ': t.minStock || 'Min. Stock',
-            'สถานที่': t.location || 'Location',
-            'สถานที่จัดเก็บ': t.storageLocation || 'Storage Location',
-            'ทุกสถานที่': t.allLocations || 'All',
-            'เพิ่มอะไหล่': t.addSparepart || 'Add Part',
-            'เบิกของ': t.withdraw || 'Withdraw',
-            'คืนของ': t.return || 'Return'
-        }
-    };
-    
-    // Dashboard stat labels
-    const statLabels = document.querySelectorAll('.stat-label');
-    if (statLabels.length > 0) {
-        const labels = [t.totalItems, t.totalQuantity, t.lowStockItems];
-        statLabels.forEach((label, index) => {
-            if (labels[index]) label.textContent = labels[index];
-        });
-    }
-    
-    // Section titles
-    const sectionTitles = {
-        'alertsTitle': 'การแจ้งเตือนสต็อก',
-        'recentTransactionsTitle': 'รายการล่าสุด',
-        'stockAnalysisTitle': 'วิเคราะห์สต็อก'
-    };
-    
-    document.querySelectorAll('.section h3').forEach(h3 => {
-        const text = h3.textContent.trim();
-        // Update based on emoji or position
-        if (text.includes('📋')) {
-            h3.textContent = `📋 ${t.alertsTitle}`;
-        } else if (text.includes('📊')) {
-            h3.textContent = `📊 ${t.recentTransactionsTitle}`;
-        } else if (text.includes('📈')) {
-            h3.textContent = `📈 ${t.stockAnalysisTitle}`;
-        } else if (text.includes('📉')) {
-            h3.textContent = `📉 ${t.transactionTrendsTitle}`;
-        } else if (text.includes('🔝')) {
-            h3.textContent = `🔝 ${t.topItemsTitle}`;
-        }
-    });
-    
-    // Button texts (ยกเว้นปุ่มบันทึกการตั้งค่าใน settings)
-    document.querySelectorAll('.btn').forEach(btn => {
-        if (btn.id === 'saveSettingsBtn') return;
-        const btnText = btn.textContent.trim();
-        if (btnText.includes('บันทึก') || btnText.includes('Save')) {
-            const icon = btn.innerHTML.match(/^[^A-Za-z]*/)?.[0] || '💾';
-            btn.innerHTML = `${icon} ${t.save}`;
-        } else if (btnText.includes('ยกเลิก') || btnText.includes('Cancel')) {
-            btn.textContent = t.cancel;
-        } else if (btnText.includes('แก้ไข') || btnText.includes('Edit')) {
-            btn.textContent = t.edit;
-        } else if (btnText.includes('ลบ') || btnText.includes('Delete')) {
-            btn.textContent = t.delete;
-        } else if (btnText.includes('ปิด') || btnText.includes('Close')) {
-            btn.textContent = t.close;
-        } else if (btnText.includes('ค้นหา') || btnText.includes('Search')) {
-            btn.textContent = t.search;
-        } else if (btnText.includes('ส่งออก') || btnText.includes('Export')) {
-            btn.textContent = t.export;
-        } else if (btnText.includes('นำเข้า') || btnText.includes('Import')) {
-            btn.textContent = t.import;
-        } else if (btnText.includes('รีเซ็ต') || btnText.includes('Reset')) {
-            btn.textContent = t.reset;
-        }
-    });
-    
-    // Table headers
-    const thElements = document.querySelectorAll('table thead th');
-    thElements.forEach(th => {
-        const text = th.textContent.trim();
-        if (text === 'ลำดับ' || text === 'No.') th.textContent = t.no || 'ลำดับ';
-        if (text === 'ชื่อ' || text === 'Name') th.textContent = t.name || 'ชื่อ';
-        if (text === 'ชื่ออะไหล่' || text === 'Part Name') th.textContent = t.partName || 'ชื่ออะไหล่';
-        if (text === 'ตำแหน่ง' || text === 'Location') th.textContent = t.location || 'ตำแหน่ง';
-        if (text === 'จำนวน' || text === 'Quantity') th.textContent = t.quantity || 'จำนวน';
-        if (text === 'จำนวนคงเหลือ' || text === 'Quantity Remaining') th.textContent = t.quantityRemaining || 'จำนวนคงเหลือ';
-        if (text === 'สต็อกขั้นต่ำ' || text === 'Min. Stock') th.textContent = t.minStock || 'สต็อกขั้นต่ำ';
-        if (text === 'จำนวนขั้นต่ำ' || text === 'Min. Quantity') th.textContent = t.minStock || 'จำนวนขั้นต่ำ';
-        if (text === 'สถานะ' || text === 'Status') th.textContent = t.status || 'สถานะ';
-        if (text === 'สถานที่จัดเก็บ' || text === 'Storage Location') th.textContent = t.storageLocation || 'สถานที่จัดเก็บ';
-        if (text === 'จัดการ' || text === 'Actions') th.textContent = t.actions || 'จัดการ';
-        if (text === 'ประเภท' || text === 'Type') th.textContent = t.type || 'ประเภท';
-        if (text === 'ผู้ขอ' || text === 'Requested By') th.textContent = t.requestedBy || 'ผู้ขอ';
-        if (text === 'วันที่' || text === 'Date') th.textContent = t.date || 'วันที่';
-        if (text === 'ชื่อผู้ใช้' || text === 'Username') th.textContent = t.username || 'ชื่อผู้ใช้';
-        if (text === 'ชื่อ-นามสกุล' || text === 'Full Name') th.textContent = t.fullName || 'ชื่อ-นามสกุล';
-        if (text === 'อีเมล' || text === 'Email') th.textContent = t.email || 'อีเมล';
-        if (text === 'บทบาท' || text === 'Role') th.textContent = t.role || 'บทบาท';
-        if (text === 'ผู้ใช้' || text === 'User') th.textContent = t.user || 'ผู้ใช้';
-        if (text === 'การกระทำ' || text === 'Action') th.textContent = t.action || 'การกระทำ';
-        if (text === 'รายละเอียด' || text === 'Details') th.textContent = t.details || 'รายละเอียด';
-        if (text === 'เวลา' || text === 'Timestamp') th.textContent = t.timestamp || 'เวลา';
-    });
-    
-    // Update label texts in forms and filters
-    document.querySelectorAll('label').forEach(label => {
-        const text = label.textContent.trim();
-        if (text === 'ชื่ออะไหล่ *' || text === 'Part Name *') label.textContent = t.partName ? `${t.partName} *` : 'ชื่ออะไหล่ *';
-        if (text === 'จำนวนขั้นต่ำ *' || text === 'Min. Stock *') label.textContent = t.minStock ? `${t.minStock} *` : 'จำนวนขั้นต่ำ *';
-        if (text === 'สถานที่จัดเก็บ' || text === 'Storage Location') label.textContent = t.storageLocation || 'สถานที่จัดเก็บ';
-        if (text === 'ตำแหน่ง' || text === 'Location') label.textContent = t.location || 'ตำแหน่ง';
-        if (text === 'สถานะ' || text === 'Status') label.textContent = t.status || 'สถานะ';
-        if (text === 'ประเภท' || text === 'Type') label.textContent = t.type || 'ประเภท';
-        if (text === 'บทบาท' || text === 'Role') label.textContent = t.role || 'บทบาท';
-    });
-    
-    // Update input placeholders
-    document.querySelectorAll('input[type="text"], input[type="number"], input[type="email"], input[type="password"]').forEach(input => {
-        const placeholder = input.placeholder.trim();
-        if (placeholder === 'จำนวนขั้นต่ำ' || placeholder === 'Min. Stock') input.placeholder = t.minStock || 'จำนวนขั้นต่ำ';
-        if (placeholder === '🔍 ค้นหาอะไหล่...' || placeholder === '🔍 Search spare part...') input.placeholder = `🔍 ${t.searchPlaceholder}`;
-    });
-}
 
 function updateDashboardTexts(t) {
     const dashboardView = document.getElementById('dashboardView');
@@ -853,7 +636,7 @@ function updateDashboardTexts(t) {
         }
     });
     
-    // Update section titles
+    // Update section titles (charts and dashboard blocks)
     const sections = dashboardView.querySelectorAll('.section h3');
     sections.forEach(h3 => {
         const text = h3.textContent;
@@ -861,6 +644,15 @@ function updateDashboardTexts(t) {
         else if (text.includes('📊')) h3.textContent = `📊 ${t.recentTransactionsTitle}`;
         else if (text.includes('📈')) h3.textContent = `📈 ${t.stockAnalysisTitle}`;
         else if (text.includes('📉')) h3.textContent = `📉 ${t.transactionTrendsTitle}`;
+    });
+    // Also update chart titles if present
+    const chartTitles = dashboardView.querySelectorAll('.chart-title, .dashboard-chart-title');
+    chartTitles.forEach(el => {
+        if (el.textContent.includes('สถานะสต็อก') || el.textContent.includes('Stock Analysis')) {
+            el.textContent = `📈 ${t.stockAnalysisTitle}`;
+        } else if (el.textContent.includes('รายการเบิก vs คืน') || el.textContent.includes('Transaction Trends')) {
+            el.textContent = `📉 ${t.transactionTrendsTitle}`;
+        }
     });
     
     // Update button
@@ -968,68 +760,61 @@ function updateReportsTexts(t) {
     }
 }
 
-function updateUsersTexts(t) {
-    const usersView = document.getElementById('usersView');
-    if (!usersView) return;
-    
-    // Update title
-    usersView.querySelectorAll('h1').forEach(h1 => {
-        h1.textContent = `👥 ${t.usersTitle}`;
-    });
-    
-    // Update subtitle
-    const pageHeader = usersView.querySelector('.page-header');
-    if (pageHeader) {
-        const p = pageHeader.querySelector('p');
-        if (p) p.textContent = t.usersSubtitle;
-        
-        // Update add button
-        const addBtn = pageHeader.querySelector('.btn-primary');
-        if (addBtn) {
-            addBtn.innerHTML = `➕ ${t.addUser}`;
-        }
-    }
-    
-    // Update table headers
-    const table = usersView.querySelector('table');
-    if (table) {
-        const headers = table.querySelectorAll('thead th');
-        const headerTexts = [t.no, t.username, t.fullName, t.email, t.role, t.actions];
-        headers.forEach((th, index) => {
-            if (headerTexts[index]) {
-                th.textContent = headerTexts[index];
-            }
+async function editUser(id) {
+    try {
+        const result = await getApi().getUsers();
+        const foundUser = (result.data || []).find(u => Number(u.id) === Number(id));
+        if (!foundUser) return alert("ไม่พบผู้ใช้");
+
+        const modalBody = document.getElementById("modalBody");
+        modalBody.innerHTML = `
+            <h2 class="mb-2">✏️ แก้ไขผู้ใช้</h2>
+            <form id="editUserForm">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" value="${foundUser.username}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Password ใหม่ (เว้นว่างหากไม่ต้องการเปลี่ยน)</label>
+                    <input type="password" name="password" minlength="8">
+                </div>
+                <div class="form-group">
+                    <label>ชื่อ-นามสกุล</label>
+                    <input type="text" name="full_name" value="${foundUser.full_name || ""}">
+                </div>
+                <div class="form-group">
+                    <label>Role *</label>
+                    <select name="role" required>
+                        <option value="admin" ${foundUser.role === "admin" ? "selected" : ""}>Admin</option>
+                        <option value="coadmin" ${foundUser.role === "coadmin" ? "selected" : ""}>Co-Admin</option>
+                        <option value="staff" ${foundUser.role === "staff" ? "selected" : ""}>Staff</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:12px;">
+                    <button type="submit" class="btn btn-primary">💾 บันทึก</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
+                </div>
+            </form>
+        `;
+
+        document.getElementById("editUserForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const data = Object.fromEntries(new FormData(e.target));
+            if (!data.password) delete data.password;
+
+            await getApi().updateUser(Number(id), data);
+            closeModal();
+            loadUsers();
+            alert("แก้ไขผู้ใช้สำเร็จ");
         });
+
+        showModal();
+    } catch (error) {
+        alert("เกิดข้อผิดพลาด: " + error.message);
     }
 }
 
-function updateActivityTexts(t) {
-    const activityView = document.getElementById('activityView');
-    if (!activityView) return;
-    
-    // Update title
-    activityView.querySelectorAll('h1').forEach(h1 => {
-        h1.textContent = `📋 ${t.activityTitle}`;
-    });
-    
-    // Update subtitle
-    const pageHeader = activityView.querySelector('.page-header');
-    if (pageHeader) {
-        const p = pageHeader.querySelector('p');
-        if (p) p.textContent = t.activitySubtitle;
-    }
-    
-    // Update table headers
-    const table = activityView.querySelector('table');
-    if (table) {
-        const headers = table.querySelectorAll('thead th');
-        const headerTexts = [t.no, t.user, t.action, t.details, t.timestamp];
-        headers.forEach((th, index) => {
-            if (headerTexts[index]) {
-                th.textContent = headerTexts[index];
-            }
-        });
-    }
+
 }
 
 function updateSettingsTexts(t) {
@@ -1103,102 +888,141 @@ function updateSettingsTexts(t) {
 
 // Logout
 function logout() {
-    const lang = localStorage.getItem('language') || 'th';
-    const confirmMsg = translations[lang].confirmLogout;
-    
-    if (confirm(confirmMsg)) {
+    // ✅ ใช้ fallback ถ้า translations ยังไม่พร้อม
+    const t = (window.translations && typeof window.translations === 'object') ? window.translations : {};
+    const msg = t.logoutConfirm || 'Logout?';
+
+    if (!confirm(msg)) return;
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    location.href = '/index.html';
+}
+
+function showLogoutModal(message) {
+    let modal = document.getElementById('logoutModal');
+    if (!modal) {
+        // Create modal if not exists
+        modal = document.createElement('div');
+        modal.id = 'logoutModal';
+        modal.innerHTML = `
+            <div class="modal-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);z-index:9999;display:flex;align-items:center;justify-content:center;">
+                <div class="modal-content" style="background:#fff;padding:24px 32px;border-radius:8px;box-shadow:0 2px 16px rgba(0,0,0,0.2);min-width:280px;max-width:90vw;text-align:center;">
+                    <div style="font-size:1.1em;margin-bottom:18px;">${message}</div>
+                    <button id="logoutModalConfirm" style="margin:0 8px 0 0;padding:6px 18px;background:#d32f2f;color:#fff;border:none;border-radius:4px;">ออกจากระบบ</button>
+                    <button id="logoutModalCancel" style="padding:6px 18px;background:#eee;color:#333;border:none;border-radius:4px;">ยกเลิก</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    } else {
+        modal.querySelector('.modal-content div').textContent = message;
+        modal.style.display = 'flex';
+    }
+    modal.style.display = 'flex';
+    document.getElementById('logoutModalConfirm').onclick = function() {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = 'index.html';
-    }
+    };
+    document.getElementById('logoutModalCancel').onclick = function() {
+        modal.style.display = 'none';
+    };
 }
 
 // ===== Dashboard Functions =====
 async function loadDashboard() {
-    try {
-        const [summary, lowStock, recentTx] = await Promise.all([
-            api.getStockSummary(),
-            api.getLowStock(),
-            api.getRecentTransactions(10)
-        ]);
-        
-        // Update stats
-        document.getElementById('totalItems').textContent = summary.summary.total_items;
-        document.getElementById('totalQuantity').textContent = summary.summary.total_quantity;
-        document.getElementById('lowStockItems').textContent = summary.summary.low_stock_items;
-        
-        // Display low stock items
-        const lowStockList = document.getElementById('lowStockList');
-        if (summary.low_stock && summary.low_stock.length > 0) {
-            lowStockList.innerHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>ชื่ออะไหล่</th>
-                            <th>จำนวนคงเหลือ</th>
-                            <th>จำนวนขั้นต่ำ</th>
-                            <th>สถานที่</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${summary.low_stock.map(item => `
-                            <tr>
-                                <td><strong>${item.name}</strong></td>
-                                <td><span class="status-badge status-issue">${item.quantity}</span></td>
-                                <td>${item.min_stock}</td>
-                                <td>${item.location || '-'}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        } else {
-            lowStockList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p>ไม่มีอะไหล่ที่ใกล้หมด</p></div>';
-        }
-        
-        // Display recent transactions
-        const recentList = document.getElementById('recentTransactions');
-        if (recentTx.data && recentTx.data.length > 0) {
-            recentList.innerHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>วันที่</th>
-                            <th>ประเภท</th>
-                            <th>อะไหล่</th>
-                            <th>จำนวน</th>
-                            <th>ผู้เบิก/คืน</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${recentTx.data.map(tx => `
-                            <tr>
-                                <td>${new Date(tx.created_at).toLocaleString('th-TH')}</td>
-                                <td><span class="status-badge status-${tx.type}">${tx.type === 'issue' ? '📤 เบิก' : '📥 คืน'}</span></td>
-                                <td>${tx.sparepart_name}</td>
-                                <td>${tx.qty}</td>
-                                <td>${tx.requester}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        } else {
-            recentList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><p>ยังไม่มีรายการเบิก-คืน</p></div>';
-        }
-        
-        // Create charts
-        setTimeout(() => {
-            createStockStatusChart(summary.status);
-            createTransactionTrendChart();
-            createTopItemsChart();
-            // Apply language translation after page content is loaded
-            applyLanguageToCurrentPage();
-        }, 100);
-    } catch (error) {
-        console.error('Load dashboard error:', error);
-        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+    // ✅ ถ้าไม่มี element หลัก แปลว่าไม่ได้อยู่หน้า dashboard
+    if (!document.getElementById('totalItems')) {
+        console.log('DEBUG: loadDashboard skipped (not on dashboard page)');
+        return;
     }
+    // MOCK DATA ตัวอย่าง
+    document.getElementById('totalItems').textContent = 25;
+    document.getElementById('totalQuantity').textContent = 120;
+    document.getElementById('lowStockItems').textContent = 3;
+
+    // ตัวอย่างอะไหล่ใกล้หมด
+    const lowStockList = document.getElementById('lowStockList');
+    lowStockList.innerHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ชื่ออะไหล่</th>
+                    <th>จำนวนคงเหลือ</th>
+                    <th>จำนวนขั้นต่ำ</th>
+                    <th>สถานที่</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>RAM DDR4 8GB</strong></td>
+                    <td><span class="status-badge status-issue">2</span></td>
+                    <td>5</td>
+                    <td>คลังหลัก</td>
+                </tr>
+                <tr>
+                    <td><strong>SSD 256GB</strong></td>
+                    <td><span class="status-badge status-issue">1</span></td>
+                    <td>3</td>
+                    <td>คลังย่อย</td>
+                </tr>
+                <tr>
+                    <td><strong>สาย LAN CAT6</strong></td>
+                    <td><span class="status-badge status-issue">0</span></td>
+                    <td>10</td>
+                    <td>ห้อง IT</td>
+                </tr>
+            </tbody>
+        </table>
+    `;
+
+    // ตัวอย่างรายการเบิก-คืนล่าสุด
+    const recentList = document.getElementById('recentTransactions');
+    recentList.innerHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>วันที่</th>
+                    <th>ประเภท</th>
+                    <th>อะไหล่</th>
+                    <th>จำนวน</th>
+                    <th>ผู้เบิก/คืน</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>17/02/2026 09:15</td>
+                    <td><span class="status-badge status-issue">📤 เบิก</span></td>
+                    <td>RAM DDR4 8GB</td>
+                    <td>2</td>
+                    <td>สมชาย</td>
+                </tr>
+                <tr>
+                    <td>16/02/2026 14:30</td>
+                    <td><span class="status-badge status-return">📥 คืน</span></td>
+                    <td>SSD 256GB</td>
+                    <td>1</td>
+                    <td>วิภา</td>
+                </tr>
+                <tr>
+                    <td>15/02/2026 10:00</td>
+                    <td><span class="status-badge status-issue">📤 เบิก</span></td>
+                    <td>สาย LAN CAT6</td>
+                    <td>5</td>
+                    <td>อนุชา</td>
+                </tr>
+            </tbody>
+        </table>
+    `;
+
+    // ตัวอย่างข้อมูลสำหรับกราฟ (mock)
+    setTimeout(() => {
+        createStockStatusChart({ good: 15, warning: 7, critical: 3 });
+        createTransactionTrendChart();
+        createTopItemsChart();
+        applyLanguageToCurrentPage();
+    }, 100);
 }
 
 // ===== Spareparts Functions =====
@@ -1219,12 +1043,12 @@ async function loadSpareparts() {
         if (minStock) params.min_stock = minStock;
         if (maxStock) params.max_stock = maxStock;
         
-        const result = await api.getSpareparts(params);
+        const result = await getApi().getSpareparts(params);
         const list = document.getElementById('sparepartsList');
         
         if (result.data && result.data.length > 0) {
-            const user = JSON.parse(localStorage.getItem('user'));
-            const isAdmin = user.role === 'admin';
+            const u = getCurrentUser();
+            const isAdmin = String(u?.role || '').toLowerCase() === 'admin';
             
             list.innerHTML = `
                 <table class="table">
@@ -1268,8 +1092,24 @@ async function loadSpareparts() {
     }
 }
 
-function showAddSparepartModal() {
+async function showAddSparepartModal() {
     const modalBody = document.getElementById('modalBody');
+
+    // โหลด custom fields
+    let customFieldsHtml = '';
+    try {
+        const result = await apiFetch('/custom_fields');
+        const fields = result.data || [];
+        fields.forEach(f => {
+            customFieldsHtml += `
+                <div class="form-group">
+                    <label>${f.name}${f.is_required ? ' *' : ''}</label>
+                    <input type="text" name="custom_${f.id}" ${f.is_required ? 'required' : ''}>
+                </div>
+            `;
+        });
+    } catch {}
+
     modalBody.innerHTML = `
         <h2 class="mb-2">➕ เพิ่มอะไหล่ใหม่</h2>
         <form id="addSparepartForm">
@@ -1277,40 +1117,67 @@ function showAddSparepartModal() {
                 <label>ชื่ออะไหล่ *</label>
                 <input type="text" name="name" required>
             </div>
+
             <div class="form-group">
                 <label>จำนวน *</label>
                 <input type="number" name="quantity" required min="0">
             </div>
+
             <div class="form-group">
                 <label>จำนวนขั้นต่ำ *</label>
                 <input type="number" name="min_stock" required min="0" value="5">
             </div>
+
             <div class="form-group">
                 <label>หมายเลข Sparepart No.</label>
                 <input type="text" name="part_no" placeholder="กรอกหมายเลขอะไหล่ (Sparepart No.)">
             </div>
+
             <div class="form-group">
                 <label>สถานที่จัดเก็บ</label>
                 <input type="text" name="location" placeholder="เช่น คลังหลัก, ห้อง IT">
             </div>
+
             <div class="form-group">
                 <label>หมายเหตุ</label>
                 <textarea name="note" rows="3"></textarea>
             </div>
-            <div style="display: flex; gap: 12px;">
+
+            ${customFieldsHtml}
+
+            <div style="display:flex; gap:12px;">
                 <button type="submit" class="btn btn-primary">💾 บันทึก</button>
                 <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
             </div>
         </form>
     `;
-    
+
     document.getElementById('addSparepartForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData);
-        
+
+        // แยก custom fields
+        const customValues = {};
+        for (const [k, v] of Object.entries(data)) {
+            if (k.startsWith('custom_')) {
+                customValues[k.replace('custom_', '')] = v;
+                delete data[k];
+            }
+        }
+
         try {
-            await api.createSparepart(data);
+            const created = await getApi().createSparepart(data);
+
+            if (created?.data?.id && Object.keys(customValues).length > 0) {
+                await apiFetch(`/custom_fields/spareparts/${created.data.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ values: customValues })
+                });
+            }
+
             closeModal();
             loadSpareparts();
             alert('เพิ่มอะไหล่สำเร็จ');
@@ -1318,15 +1185,33 @@ function showAddSparepartModal() {
             alert('เกิดข้อผิดพลาด: ' + error.message);
         }
     });
-    
+
     showModal();
 }
 
 async function editSparepart(id) {
     try {
-        const result = await api.getSparepartById(id);
-        const item = result.data;
-        
+        const item = await getApi().getSparepartById(id);
+        if (!item) {
+            alert("ไม่พบข้อมูลอะไหล่ หรือเกิดข้อผิดพลาด");
+            return;
+        }
+        // โหลด custom fields และค่าปัจจุบัน
+        let customFieldsHtml = '';
+        let customValues = {};
+        try {
+            const result = await apiFetch(`/custom_fields/spareparts/${id}`);
+            const fields = result.data || [];
+            fields.forEach(f => {
+                customFieldsHtml += `
+                    <div class="form-group">
+                        <label>${f.name}${f.is_required ? ' *' : ''}</label>
+                        <input type="text" name="custom_${f.field_id}" value="${f.value_text || ''}" ${f.is_required ? 'required' : ''}>
+                    </div>
+                `;
+                customValues[f.field_id] = f.value_text || '';
+            });
+        } catch {}
         const modalBody = document.getElementById('modalBody');
         modalBody.innerHTML = `
             <h2 class="mb-2">✏️ แก้ไขอะไหล่</h2>
@@ -1351,20 +1236,38 @@ async function editSparepart(id) {
                     <label>หมายเหตุ</label>
                     <textarea name="note" rows="3">${item.note || ''}</textarea>
                 </div>
+                ${customFieldsHtml}
                 <div style="display: flex; gap: 12px;">
                     <button type="submit" class="btn btn-primary">💾 บันทึก</button>
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">ยกเลิก</button>
                 </div>
             </form>
         `;
-        
         document.getElementById('editSparepartForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
-            
+            // แยก custom fields
+            const customValuesUpdate = {};
+            for (const [k, v] of Object.entries(data)) {
+                if (k.startsWith('custom_')) {
+                    customValuesUpdate[k.replace('custom_', '')] = v;
+                    delete data[k];
+                }
+            }
             try {
-                await api.updateSparepart(id, data);
+                await getApi().updateSparepart(id, data);
+                // อัปเดต custom fields
+                if (Object.keys(customValuesUpdate).length > 0) {
+                    await apiFetch(`/custom_fields/spareparts/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + (localStorage.getItem('token') || '')
+                        },
+                        body: JSON.stringify({ values: customValuesUpdate })
+                    });
+                }
                 closeModal();
                 loadSpareparts();
                 alert('แก้ไขอะไหล่สำเร็จ');
@@ -1372,99 +1275,15 @@ async function editSparepart(id) {
                 alert('เกิดข้อผิดพลาด: ' + error.message);
             }
         });
-        
         showModal();
     } catch (error) {
         alert('เกิดข้อผิดพลาด: ' + error.message);
     }
 }
 
-async function deleteSparepart(id, name) {
-    if (!confirm(`ต้องการลบอะไหล่ "${name}" ใช่หรือไม่?`)) return;
-    
-    try {
-        await api.deleteSparepart(id);
-        loadSpareparts();
-        alert('ลบอะไหล่สำเร็จ');
-    } catch (error) {
-        alert('เกิดข้อผิดพลาด: ' + error.message);
-    }
-}
-
-// ===== Transactions Functions =====
-async function loadTransactions() {
-    try {
-    const type = document.getElementById('filterTxType')?.value;
-    const requester = document.getElementById('filterRequester')?.value;
-    const dateFrom = document.getElementById('filterDateFrom')?.value;
-    const dateTo = document.getElementById('filterDateTo')?.value;
-
-    const params = {};
-    if (type) params.type = type;
-    if (requester) params.requester = requester;
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
-
-    const result = await api.getTransactions(params);
-        const list = document.getElementById('transactionsList');
-        
-        if (result.data && result.data.length > 0) {
-            const user = JSON.parse(localStorage.getItem('user'));
-            const isAdmin = user.role === 'admin';
-            
-            list.innerHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>วันที่</th>
-                            <th>ประเภท</th>
-                            <th>อะไหล่</th>
-                            <th>จำนวน</th>
-                            <th>ผู้เบิก/คืน</th>
-                            <th>หมายเหตุ</th>
-                            <th>ผู้บันทึก</th>
-                            ${isAdmin ? '<th>จัดการ</th>' : ''}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${result.data.map(tx => {
-                            const normalizedType = String(tx.type || '').toLowerCase();
-                            const typeLabel = normalizedType === 'issue' ? '📤 เบิก' : '📥 คืน';
-                            const typeClass = normalizedType === 'issue' ? 'issue' : 'return';
-                            return `
-                                <tr>
-                                    <td>${new Date(tx.created_at).toLocaleString('th-TH')}</td>
-                                    <td><span class="status-badge status-${typeClass}">${typeLabel}</span></td>
-                                    <td>${tx.sparepart_name}</td>
-                                    <td>${tx.qty}</td>
-                                    <td>${tx.requester}</td>
-                                    <td>${tx.note || '-'}</td>
-                                    <td>${tx.created_by_full_name || tx.created_by_username || '-'}</td>
-                                    ${isAdmin ? `
-                                        <td>
-                                            <button class="btn btn-danger" onclick="deleteTransaction(${tx.id})" style="padding: 6px 12px; font-size: 13px;">🗑️ ลบ</button>
-                                        </td>
-                                    ` : ''}
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            `;
-        } else {
-            list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><p>ยังไม่มีรายการเบิก-คืน</p></div>';
-        }
-        
-        // Do not auto-apply language here; navigation handles it
-    } catch (error) {
-        console.error('Load transactions error:', error);
-        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
-    }
-}
-
 async function showTransactionModal(type) {
     try {
-        const result = await api.getSpareparts();
+        const result = await getApi().getSpareparts();
         const spareparts = result.data;
         
         const modalBody = document.getElementById('modalBody');
@@ -1510,9 +1329,9 @@ async function showTransactionModal(type) {
             
             try {
                 if (type === 'issue') {
-                    await api.issueSparepart(data);
+                    await getApi().issueSparepart(data);
                 } else {
-                    await api.returnSparepart(data);
+                    await getApi().returnSparepart(data);
                 }
                 closeModal();
                 loadTransactions();
@@ -1532,68 +1351,120 @@ async function deleteTransaction(id) {
     if (!confirm('ต้องการลบรายการนี้ใช่หรือไม่?\n⚠️ การลบจะไม่ปรับสต็อกย้อนกลับ')) return;
     
     try {
-        await api.deleteTransaction(id);
+        await getApi().deleteTransaction(id);
         loadTransactions();
         alert('ลบรายการสำเร็จ');
     } catch (error) {
         alert('เกิดข้อผิดพลาด: ' + error.message);
     }
 }
-// ===== Users Functions =====
-async function loadUsers() {
-    try {
-        const q = document.getElementById('searchUsers')?.value;
-        const role = document.getElementById('filterUserRole')?.value;
-        const isActive = document.getElementById('filterUserStatus')?.value;
+// ================== NAVIGATION (sidebar) ==================
+(function () {
+    const map = {
+        dashboard: "dashboardView",
+        spareparts: "sparepartsView",
+        transactions: "transactionsView",
+        reports: "reportsView",
+        users: "usersView",
+        settings: "settingsView",
+        activity: "activityView",
+    };
 
-        const params = {};
-        if (q) params.q = q;
-        if (role) params.role = role;
-        if (isActive !== undefined && isActive !== '') params.is_active = isActive;
+    function showView(viewKey) {
+        document.querySelectorAll("#sidebarNav .nav-item").forEach((a) => {
+            a.classList.toggle("active", a.dataset.view === viewKey);
+        });
 
-        const result = await api.getUsers(params);
-        const list = document.getElementById('usersList');
-        
-        if (result.data && result.data.length > 0) {
-            list.innerHTML = `
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Username</th>
-                            <th>ชื่อ-นามสกุล</th>
-                            <th>Role</th>
-                            <th>สถานะ</th>
-                            <th>วันที่สร้าง</th>
-                            <th>จัดการ</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${result.data.map(user => `
-                            <tr>
-                                <td><strong>${user.username}</strong></td>
-                                <td>${user.full_name || '-'}</td>
-                                <td><span class="badge ${user.role}">${user.role}</span></td>
-                                <td><span class="status-badge ${user.is_active ? 'status-return' : 'status-issue'}">${user.is_active ? 'Active' : 'Inactive'}</span></td>
-                                <td>${new Date(user.created_at).toLocaleDateString('th-TH')}</td>
-                                <td>
-                                    <button class="btn btn-info" onclick="editUser(${user.id})" style="padding: 6px 12px; font-size: 13px;">✏️ แก้ไข</button>
-                                    <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${user.username}')" style="padding: 6px 12px; font-size: 13px;">🗑️ ลบ</button>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        } else {
-            list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><p>ไม่พบข้อมูลผู้ใช้</p></div>';
-        }
-        
-        // Apply language translation after page content is loaded
-        applyLanguageToCurrentPage();
-    } catch (error) {
-        console.error('Load users error:', error);
-        alert('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+        document.querySelectorAll("main .view").forEach((v) => v.classList.remove("active"));
+
+        const id = map[viewKey];
+        const target = id ? document.getElementById(id) : null;
+        if (target) target.classList.add("active");
+
+        // call loaders if exist
+        if (viewKey === "dashboard" && window.loadDashboard) window.loadDashboard();
+        if (viewKey === "spareparts" && window.loadSpareparts) window.loadSpareparts();
+        if (viewKey === "transactions" && window.loadTransactions) window.loadTransactions();
+        if (viewKey === "activity" && window.loadActivityLogs) window.loadActivityLogs();
+        if (viewKey === "users" && window.loadUsers) window.loadUsers();
+        if (viewKey === "settings" && window.loadSettings) window.loadSettings();
     }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const nav = document.getElementById("sidebarNav");
+        if (!nav) return;
+
+        nav.addEventListener("click", (e) => {
+            const a = e.target.closest(".nav-item");
+            if (!a) return;
+
+            if (a.id === "logoutMenuBtn") return; // logout separate
+            const viewKey = a.dataset.view;
+            if (!viewKey) return;
+
+            e.preventDefault();
+            showView(viewKey);
+        });
+
+        showView("dashboard");
+    });
+})();
+
+// ===== API BASE + apiFetch =====
+window.API_BASE = window.API_BASE || "http://127.0.0.1:3001";
+
+window.apiFetch = async function apiFetch(path, options = {}) {
+    const base = window.API_BASE.replace(/\/$/, "");
+    const url = path.startsWith("http") ? path : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+
+    const token = localStorage.getItem("token") || "";
+    const headers = new Headers(options.headers || {});
+    const isFormData = options.body instanceof FormData;
+
+    if (!isFormData && !headers.has("Content-Type") && options.body !== undefined) {
+        headers.set("Content-Type", "application/json");
+    }
+    if (token && !headers.has("Authorization")) {
+        headers.set("Authorization", `Bearer ${token}`);
+    }
+
+    const res = await fetch(url, { ...options, headers });
+    const ct = res.headers.get("content-type") || "";
+    const data = ct.includes("application/json")
+        ? await res.json().catch(() => null)
+        : await res.text().catch(() => "");
+
+    if (!res.ok) {
+        const msg =
+            (data && (data.message || data.error)) ||
+            (typeof data === "string" ? data : "") ||
+            `Request failed (${res.status})`;
+        throw new Error(msg);
+    }
+    return data;
+};
+
+// ===== getApi adapter =====
+window.getApi = function getApi() {
+    return {
+        getUsers: (params = {}) => {
+            const qs = new URLSearchParams(params).toString();
+            return window.apiFetch(`/users${qs ? `?${qs}` : ""}`);
+        },
+        updateUser: (id, body) =>
+            window.apiFetch(`/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    };
+};
+        alert('บันทึกสิทธิ์เมนูสำเร็จ'); // Saved menu permissions successfully
+        closePermissionsModal();
+        // Reload page to update sidebar menu for coadmin
+        window.location.reload();
+    };
+}
+
+function closePermissionsModal() {
+    // ===== ฟังก์ชันปิด modal สิทธิ์เมนู (Close permissions modal) =====
+    document.getElementById('permissionsModal').style.display = 'none';
 }
 
 function showAddUserModal() {
@@ -1607,7 +1478,8 @@ function showAddUserModal() {
             </div>
             <div class="form-group">
                 <label>Password *</label>
-                <input type="password" name="password" required minlength="6">
+                <input type="password" name="password" required minlength="8" placeholder="อย่างน้อย 8 ตัวอักษร">
+                <div id="addUserPwdError" style="color:#d32f2f;font-size:0.95em;margin-top:4px;display:none;"></div>
             </div>
             <div class="form-group">
                 <label>ชื่อ-นามสกุล</label>
@@ -1616,8 +1488,9 @@ function showAddUserModal() {
             <div class="form-group">
                 <label>Role *</label>
                 <select name="role" required>
-                    <option value="staff">Staff</option>
                     <option value="admin">Admin</option>
+                    <option value="coadmin">Co-Admin</option>
+                    <option value="staff">Staff</option>
                 </select>
             </div>
             <div style="display: flex; gap: 12px;">
@@ -1631,9 +1504,17 @@ function showAddUserModal() {
         e.preventDefault();
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData);
-        
+        const pwd = data.password || '';
+        const pwdErrorElem = document.getElementById('addUserPwdError');
+        if (pwd.length < 8) {
+            pwdErrorElem.textContent = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร';
+            pwdErrorElem.style.display = 'block';
+            return;
+        } else {
+            pwdErrorElem.style.display = 'none';
+        }
         try {
-            await api.createUser(data);
+            await getApi().createUser(data);
             closeModal();
             loadUsers();
             alert('เพิ่มผู้ใช้สำเร็จ');
@@ -1647,8 +1528,8 @@ function showAddUserModal() {
 
 async function editUser(id) {
     try {
-        const result = await api.getUsers();
-        const user = result.data.find(u => u.id === id);
+        const result = await getApi().getUsers();
+        const foundUser = result.data.find(u => u.id === id);
         
         const modalBody = document.getElementById('modalBody');
         modalBody.innerHTML = `
@@ -1669,8 +1550,9 @@ async function editUser(id) {
                 <div class="form-group">
                     <label>Role *</label>
                     <select name="role" required>
-                        <option value="staff" ${user.role === 'staff' ? 'selected' : ''}>Staff</option>
                         <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Admin</option>
+                        <option value="coadmin" ${user.role === 'coadmin' ? 'selected' : ''}>Co-Admin</option>
+                        <option value="staff" ${user.role === 'staff' ? 'selected' : ''}>Staff</option>
                     </select>
                 </div>
                 <div style="display: flex; gap: 12px;">
@@ -1684,12 +1566,13 @@ async function editUser(id) {
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData);
-            
+
             // Remove password if empty
             if (!data.password) delete data.password;
-            
+
             try {
-                await api.updateUser(id, data);
+                // Ensure id is a number
+                await getApi().updateUser(Number(id), data);
                 closeModal();
                 loadUsers();
                 alert('แก้ไขผู้ใช้สำเร็จ');
@@ -1708,7 +1591,7 @@ async function deleteUser(id, username) {
     if (!confirm(`ต้องการลบผู้ใช้ "${username}" ใช่หรือไม่?`)) return;
     
     try {
-        await api.deleteUser(id);
+        await getApi().deleteUser(id);
         loadUsers();
         alert('ลบผู้ใช้สำเร็จ');
     } catch (error) {
@@ -1719,7 +1602,7 @@ async function deleteUser(id, username) {
 // ===== Reports Functions =====
 async function exportStockSummary() {
     try {
-        await api.exportStockSummary();
+        await getApi().exportStockSummary();
     } catch (error) {
         alert('เกิดข้อผิดพลาด: ' + error.message);
     }
@@ -1727,7 +1610,7 @@ async function exportStockSummary() {
 
 async function exportRecentTransactions() {
     try {
-        await api.exportRecentTransactions(50);
+        await getApi().exportRecentTransactions(50);
     } catch (error) {
         alert('เกิดข้อผิดพลาด: ' + error.message);
     }
@@ -1745,7 +1628,7 @@ async function loadActivityLogs() {
             if (action) params.action = action;
             if (limit) params.limit = limit;
         
-            const result = await api.getActivityLogs(params);
+            const result = await getApi().getActivityLogs(params);
             const list = document.getElementById('activityLogsList');
         
             if (result.data && result.data.length > 0) {
@@ -1866,7 +1749,7 @@ async function createTransactionTrendChart() {
     
     try {
         // Get transaction counts by type
-        const allTransactions = await api.getTransactions({});
+        const allTransactions = await getApi().getTransactions({});
         const txData = allTransactions.data || [];
         
         const issueCount = txData.filter(t => t.type.toLowerCase() === 'issue').length;
@@ -1913,9 +1796,9 @@ async function createTopItemsChart() {
     
     try {
         // Get all spareparts and their transaction counts
-        const sparepartsRes = await api.getSpareparts({ q: '' });
+        const sparepartsRes = await getApi().getSpareparts({ q: '' });
         const allSpareparts = sparepartsRes.data || [];
-        const allTransactions = await api.getTransactions({});
+        const allTransactions = await getApi().getTransactions({});
         const txData = allTransactions.data || [];
         
         // Count issues per sparepart
@@ -1969,61 +1852,7 @@ async function createTopItemsChart() {
 }
 
 // ===== Settings Functions =====
-async function loadSettings() {
-    try {
-        const response = await api.getBrandingSettings();
-        console.log('DEBUG: response from getBrandingSettings =', response);
-        const settings = response; // เพราะ getBrandingSettings คืน payload ตรง ๆ
-        console.log('DEBUG: settings =', settings);
-        if (!settings) throw new Error('settings is undefined!');
-        // Fill form inputs
-        document.getElementById('settingAppName').value = settings.app_name || '';
-        document.getElementById('settingAppSubtitle').value = settings.app_subtitle || '';
-        document.getElementById('settingCompanyName').value = settings.company_name || '';
-        document.getElementById('settingLogoText').value = settings.logo_text || '';
-        document.getElementById('settingPrimaryColor').value = settings.primary_color || '#3b82f6';
-        document.getElementById('settingSecondaryColor').value = settings.secondary_color || '#8b5cf6';
-        document.getElementById('settingSuccessColor').value = settings.success_color || '#10b981';
-        document.getElementById('settingWarningColor').value = settings.warning_color || '#f59e0b';
-        document.getElementById('settingDangerColor').value = settings.danger_color || '#ef4444';
-        document.getElementById('settingInfoColor').value = settings.info_color || '#06b6d4';
-        document.getElementById('settingBackgroundColor').value = settings.background_color || '#f9fafb';
-        document.getElementById('settingSidebarColor').value = settings.sidebar_color || '#ffffff';
-        document.getElementById('settingTextColor').value = settings.text_color || '#111827';
-        document.getElementById('settingShowDemoCredentials').checked = settings.show_demo_credentials !== false;
-        // Set theme
-        const theme = settings.theme || 'light';
-        if (theme === 'dark') {
-            document.getElementById('settingThemeDark').checked = true;
-        } else {
-            document.getElementById('settingThemeLight').checked = true;
-        }
-        applyTheme(theme);
-        
-        // Update color code display
-        updateColorDisplay();
-        
-        // Load menu order
-        renderMenuOrder(settings.menu_order || ['dashboard', 'spareparts', 'transactions', 'reports', 'users', 'activity', 'settings']);
-        // Apply menu order to sidebar
-        applyMenuOrder(settings.menu_order || ['dashboard', 'spareparts', 'transactions', 'reports', 'users', 'activity', 'settings']);
-        
-        // Load system info
-        try {
-            const users = await api.getUsers({});
-            const spareparts = await api.getSpareparts({});
-            document.getElementById('totalUsersInfo').textContent = (users.data || []).length;
-            document.getElementById('totalSparepartsInfo').textContent = (spareparts.data || []).length;
-        } catch (e) {
-            console.log('Could not load system info');
-        }
-        
-        // Do NOT apply language here; navigation will handle it after content is loaded
-    } catch (error) {
-        console.error('Load settings error:', error);
-        alert('ไม่สามารถโหลดการตั้งค่าได้');
-    }
-}
+// (ลบ async function loadSettings() เวอร์ชันที่ไม่มี callback ทิ้ง)
 
 function updateColorDisplay() {
     const colors = {
@@ -2072,164 +1901,30 @@ document.addEventListener('input', (e) => {
     }
 });
 
-async function saveSettings() {
-    try {
-        const data = {
-            app_name: document.getElementById('settingAppName').value || 'IT Spare Parts Management',
-            app_subtitle: document.getElementById('settingAppSubtitle').value || 'ระบบจัดการอะไหล่ IT',
-            company_name: document.getElementById('settingCompanyName').value || 'Your Company',
-            logo_text: document.getElementById('settingLogoText').value || 'IT',
-            primary_color: document.getElementById('settingPrimaryColor').value || '#3b82f6',
-            secondary_color: document.getElementById('settingSecondaryColor').value || '#8b5cf6',
-            success_color: document.getElementById('settingSuccessColor').value || '#10b981',
-            warning_color: document.getElementById('settingWarningColor').value || '#f59e0b',
-            danger_color: document.getElementById('settingDangerColor').value || '#ef4444',
-            info_color: document.getElementById('settingInfoColor').value || '#06b6d4',
-            background_color: document.getElementById('settingBackgroundColor').value || '#f9fafb',
-            sidebar_color: document.getElementById('settingSidebarColor').value || '#ffffff',
-            text_color: document.getElementById('settingTextColor').value || '#111827',
-            show_demo_credentials: document.getElementById('settingShowDemoCredentials').checked,
-            theme: document.querySelector('input[name="theme"]:checked').value || 'light',
-            menu_order: getMenuOrder()
-        };
-        
-        const response = await api.saveBrandingSettings(data);
-        
-        // Apply settings to the page
-        document.title = `${data.app_name} - Dashboard`;
-        document.querySelector('.sidebar-header h2').textContent = data.app_name;
-        
-        // Apply menu order
-        applyMenuOrder(data.menu_order);
-        updateSidebarMenuOrder(data.menu_order);
-        // Update sidebar menu order to match settings
-        function updateSidebarMenuOrder(menuOrder) {
-            const sidebarNav = document.querySelector('.sidebar-nav');
-            if (!sidebarNav) return;
-            // Map menuOrder to sidebar nav-item selectors
-            const menuMap = {
-                dashboard: sidebarNav.querySelector('[data-view="dashboard"]'),
-                spareparts: sidebarNav.querySelector('[data-view="spareparts"]'),
-                transactions: sidebarNav.querySelector('[data-view="transactions"]'),
-                reports: sidebarNav.querySelector('[data-view="reports"]'),
-                users: sidebarNav.querySelector('[data-view="users"]'),
-                activity: sidebarNav.querySelector('[data-view="activity"]'),
-                settings: sidebarNav.querySelector('[data-view="settings"]')
-            };
-            // Keep logout always last
-            const logout = sidebarNav.querySelector('a[onclick*="logout"]');
-            // Remove all except logout
-            Array.from(sidebarNav.children).forEach(child => {
-                if (child !== logout) sidebarNav.removeChild(child);
-            });
-            // Append in new order
-            menuOrder.forEach(key => {
-                if (menuMap[key]) sidebarNav.appendChild(menuMap[key]);
-            });
-            // Append logout last
-            if (logout) sidebarNav.appendChild(logout);
-        }
-        
-        // Apply theme
-        applyTheme(data.theme);
-        
-        alert('✅ บันทึกการตั้งค่าสำเร็จ');
-    } catch (error) {
-        console.error('Save settings error:', error);
-        alert('❌ เกิดข้อผิดพลาดในการบันทึก: ' + error.message);
-    }
-}
-
-function resetSettings() {
-    if (confirm('ต้องการรีเซ็ตการตั้งค่าเป็นค่าเริ่มต้นหรือไม่?')) {
-        const defaults = {
-            app_name: 'IT Spare Parts Management',
-            app_subtitle: 'ระบบจัดการอะไหล่ IT',
-            company_name: 'Your Company',
-            logo_text: 'IT',
-            primary_color: '#3b82f6',
-            secondary_color: '#8b5cf6',
-            success_color: '#10b981',
-            warning_color: '#f59e0b',
-            danger_color: '#ef4444',
-            info_color: '#06b6d4',
-            background_color: '#f9fafb',
-            sidebar_color: '#ffffff',
-            text_color: '#111827',
-            show_demo_credentials: true,
-            theme: 'light',
-            menu_order: ['dashboard', 'spareparts', 'transactions', 'reports', 'users', 'activity', 'settings']
-        };
-        
-        document.getElementById('settingAppName').value = defaults.app_name;
-        document.getElementById('settingAppSubtitle').value = defaults.app_subtitle;
-        document.getElementById('settingCompanyName').value = defaults.company_name;
-        document.getElementById('settingLogoText').value = defaults.logo_text;
-        document.getElementById('settingPrimaryColor').value = defaults.primary_color;
-        document.getElementById('settingSecondaryColor').value = defaults.secondary_color;
-        document.getElementById('settingSuccessColor').value = defaults.success_color;
-        document.getElementById('settingWarningColor').value = defaults.warning_color;
-        document.getElementById('settingDangerColor').value = defaults.danger_color;
-        document.getElementById('settingInfoColor').value = defaults.info_color;
-        document.getElementById('settingBackgroundColor').value = defaults.background_color;
-        document.getElementById('settingSidebarColor').value = defaults.sidebar_color;
-        document.getElementById('settingTextColor').value = defaults.text_color;
-        document.getElementById('settingShowDemoCredentials').checked = defaults.show_demo_credentials;
-        document.getElementById('settingThemeLight').checked = true;
-        
-        renderMenuOrder(defaults.menu_order);
-        applyTheme(defaults.theme);
-        updateColorDisplay();
-    }
-}
-
-// Theme Management
-function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-    updateThemeIcon(theme);
-}
-
-// Listen for theme changes from settings panel
-document.addEventListener('change', (e) => {
-    if (e.target.name === 'theme') {
-        applyTheme(e.target.value);
-    }
-});
-
-// Menu Order Management
-const menuLabels = {
-    dashboard: '📊 Dashboard',
-    spareparts: '🔧 อะไหล่',
-    transactions: '📦 สถานะการเบิก-คืน',
-    reports: '📈 รายงาน',
-    users: '👥 ผู้ใช้งาน',
-    activity: '📋 Activity Logs',
-    settings: '⚙️ การตั้งค่า'
-};
-
+// Fix: Add renderMenuOrder function (was missing and caused template literal/HTML errors)
 function renderMenuOrder(menuOrder) {
     const container = document.getElementById('menuOrderList');
     if (!container) return;
-    
-    container.innerHTML = menuOrder.map((item, index) => `
-        <div class="menu-order-item" data-menu="${item}">
-            <span class="menu-order-label">${menuLabels[item] || item}</span>
-            <div class="menu-order-controls">
-                <button class="btn-menu-move" onclick="moveMenuItem(${index}, 'up')" ${index === 0 ? 'disabled' : ''}>
+    container.innerHTML = menuOrder.map((menu, index) => {
+        return `
+        <div class="menu-order-item" data-menu="${menu}">
+            <span>${menu}</span>
+            <div style="display:inline-block;float:right">
+                <button class="btn-menu-move" onclick="moveMenuItem(${index}, 'up')"${index === 0 ? ' disabled' : ''}>
                     <i class="fa fa-chevron-up"></i>
                 </button>
-                <button class="btn-menu-move" onclick="moveMenuItem(${index}, 'down')" ${index === menuOrder.length - 1 ? 'disabled' : ''}>
+                <button class="btn-menu-move" onclick="moveMenuItem(${index}, 'down')"${index === menuOrder.length - 1 ? ' disabled' : ''}>
                     <i class="fa fa-chevron-down"></i>
                 </button>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 async function loadSettings(callback) {
     try {
-        const response = await api.getBrandingSettings();
+        const response = await getApi().getBrandingSettings();
         const settings = response;
         if (!settings) throw new Error('settings is undefined!');
         // Fill form inputs
@@ -2263,8 +1958,8 @@ async function loadSettings(callback) {
         applyMenuOrder(settings.menu_order || ['dashboard', 'spareparts', 'transactions', 'reports', 'users', 'activity', 'settings']);
         // Load system info
         try {
-            const users = await api.getUsers({});
-            const spareparts = await api.getSpareparts({});
+            const users = await getApi().getUsers({});
+            const spareparts = await getApi().getSpareparts({});
             document.getElementById('totalUsersInfo').textContent = (users.data || []).length;
             document.getElementById('totalSparepartsInfo').textContent = (spareparts.data || []).length;
         } catch (e) {
@@ -2277,4 +1972,15 @@ async function loadSettings(callback) {
         alert('ไม่สามารถโหลดการตั้งค่าได้');
     }
 }
-// (Removed stray/invalid code block that caused SyntaxError)
+
+// ====== ให้แน่ใจว่าฟังก์ชันถูก bind หลังสุดของไฟล์ ======
+window.editUserMenuPermissions = editUserMenuPermissions;
+window.closePermissionsModal = closePermissionsModal;
+window.logout = logout;
+window.editUser = editUser;
+
+// Fix logoutConfirm translation key usage
+function confirmLogout() {
+  const msg = (translations?.[currentLanguage]?.confirmLogout) || "Logout?";
+  if (confirm(msg)) logout();
+}
