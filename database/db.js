@@ -3,7 +3,8 @@ const Database = require('better-sqlite3');
 
 const dbPath = process.env.DB_PATH
   ? path.resolve(process.env.DB_PATH)
-  : path.join(__dirname, 'it_spareparts.db');
+  : path.join(__dirname, 'db.sqlite');
+
 
 const native = new Database(dbPath);
 native.pragma('foreign_keys = ON');
@@ -17,8 +18,15 @@ function normalizeParams(params) {
 // Adapter ให้โค้ดเดิม (sqlite3 callback style) ใช้งานได้
 const db = {
   run(sql, params, cb) {
+    // Allow (sql, cb) signature
+    if (typeof params === 'function' && cb === undefined) {
+      cb = params;
+      params = undefined;
+    }
     try {
+      console.log('DEBUG db.run:', sql, 'params:', params);
       const info = native.prepare(sql).run(normalizeParams(params));
+      console.log('DEBUG db.run result:', info);
       if (typeof cb === 'function') {
         cb.call({ lastID: info.lastInsertRowid, changes: info.changes }, null);
       }
@@ -32,6 +40,7 @@ const db = {
   get(sql, params, cb) {
     try {
       const row = native.prepare(sql).get(normalizeParams(params));
+      console.log('DEBUG db.get:', sql, 'params:', params, 'result:', row);
       if (typeof cb === 'function') cb(null, row);
       return row;
     } catch (err) {

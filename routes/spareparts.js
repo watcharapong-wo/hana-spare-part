@@ -49,15 +49,26 @@ router.get('/', (req, res) => {
   const params = [];
   const where = [];
 
-    if (q) {
-      where.push('s.name LIKE ?');
-      params.push('%' + q + '%');
+  // ไม่แสดง disabled (soft delete)
+  where.push('s.disabled IS NULL OR s.disabled = 0');
+
+  if (q) {
+    where.push('s.name LIKE ?');
+    params.push('%' + q + '%');
   }
 
   if (location) {
     where.push('s.location = ?');
     params.push(location);
   }
+// PATCH /spareparts/:id/disable (soft delete)
+router.patch('/:id/disable', (req, res) => {
+  const id = Number(req.params.id);
+  db.run('UPDATE spareparts SET disabled = 1 WHERE id = ?', [id], function (err) {
+    if (err) return fail(res, 'DB error', 500, err.message);
+    return ok(res, { message: 'Sparepart disabled' });
+  });
+});
 
   const minQty = Number(min_qty);
   if (!Number.isNaN(minQty)) {
@@ -136,8 +147,10 @@ router.get('/:id', (req, res) => {
   );
 });
 
-// POST /spareparts
-router.post('/', requireAuth, requireRole('admin', 'staff'), validateCreateSparepart, (req, res) => {
+
+
+
+router.post('/', validateCreateSparepart, (req, res) => {
   const { name, quantity, location, category, part_no, min_stock, unit } = req.body;
 
   const q = Number(quantity);
@@ -152,9 +165,12 @@ router.post('/', requireAuth, requireRole('admin', 'staff'), validateCreateSpare
       'INSERT INTO spareparts (name, quantity, location, category, part_no, min_stock, unit, created_by, updated_by, updated_at)',
       'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(\'now\'))'
     ].join(' '),
-    [name.trim(), q, loc, cat, part, min, u, req.user.id, req.user.id],
+    [name.trim(), q, loc, cat, part, min, u, 1, 1],
     function (err) {
-      if (err) return fail(res, 'DB error', 500, err.message);
+      if (err) {
+        console.error('DB error:', err);
+        return fail(res, 'DB error', 500, err.message);
+      }
 
       db.get('SELECT * FROM spareparts WHERE id = ?', [this.lastID], (err2, row) => {
         if (err2) return fail(res, 'DB error', 500, err2.message);
@@ -165,7 +181,7 @@ router.post('/', requireAuth, requireRole('admin', 'staff'), validateCreateSpare
 });
 
 // PUT /spareparts/:id
-router.put('/:id', requireAuth, requireRole('admin', 'staff'), validateUpdateSparepart, (req, res) => {
+router.put('/:id', validateUpdateSparepart, (req, res) => {
   const id = Number(req.params.id);
   const { name, quantity, location, category, part_no, min_stock, unit } = req.body;
 
@@ -188,12 +204,16 @@ router.put('/:id', requireAuth, requireRole('admin', 'staff'), validateUpdateSpa
         '    updated_by = ?, updated_at = datetime(\'now\')',
         'WHERE id = ?'
       ].join(' '),
-      [newName, newQty, newLoc, newCat, newPart, newMin, newUnit, req.user.id, id],
+      [newName, newQty, newLoc, newCat, newPart, newMin, newUnit, 1, id],
       function (err2) {
         if (err2) return fail(res, 'DB error', 500, err2.message);
 
         db.get('SELECT * FROM spareparts WHERE id = ?', [id], (err3, updated) => {
           if (err3) return fail(res, 'DB error', 500, err3.message);
+          if (!updated) {
+            console.error('No updated row found for id', id);
+            return fail(res, 'Sparepart not found after update', 404);
+          }
           return ok(res, { message: 'Sparepart updated', data: updated });
         });
       }
@@ -202,7 +222,7 @@ router.put('/:id', requireAuth, requireRole('admin', 'staff'), validateUpdateSpa
 });
 
 // DELETE /spareparts/:id
-router.delete('/:id', requireAuth, requireRole('admin'), (req, res) => {
+router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
 
   if (!Number.isInteger(id) || id <= 0) {

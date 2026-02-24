@@ -13,29 +13,29 @@ db.serialize(() => {
       created_at TEXT DEFAULT (datetime('now'))
     )
   `, (err) => {
-    if (err) console.error('Error creating custom_fields table:', err.message);
-    else console.log('✅ custom_fields table ready');
+    if (err) {
+      console.error('Error creating custom_fields table:', err.message);
+      db.close();
+      return;
+    }
+    console.log('✅ custom_fields table ready');
+    db.run(`
+      CREATE TABLE IF NOT EXISTS sparepart_field_values (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sparepart_id INTEGER NOT NULL,
+        field_id INTEGER NOT NULL,
+        value_text TEXT DEFAULT '',
+        updated_by INTEGER,
+        updated_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(sparepart_id, field_id),
+        FOREIGN KEY(sparepart_id) REFERENCES spareparts(id),
+        FOREIGN KEY(field_id) REFERENCES custom_fields(id)
+      )
+    `, (err2) => {
+      if (err2) console.error('Error creating sparepart_field_values table:', err2.message);
+      else console.log('✅ sparepart_field_values table ready');
+      console.log('✅ Migration ok: custom fields tables ready');
+      db.close();
+    });
   });
-
-  db.run(`
-    CREATE TABLE IF NOT EXISTS sparepart_field_values (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sparepart_id INTEGER NOT NULL,
-      field_id INTEGER NOT NULL,
-      value_text TEXT DEFAULT '',
-      updated_by INTEGER,
-      updated_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(sparepart_id, field_id),
-      FOREIGN KEY(sparepart_id) REFERENCES spareparts(id),
-      FOREIGN KEY(field_id) REFERENCES custom_fields(id)
-    )
-  `, (err) => {
-    if (err) console.error('Error creating sparepart_field_values table:', err.message);
-    else console.log('✅ sparepart_field_values table ready');
-  });
-
-  setTimeout(() => {
-    console.log('✅ Migration ok: custom fields tables ready');
-    db.close();
-  }, 500);
 });

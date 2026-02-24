@@ -1,54 +1,40 @@
-require('dotenv').config();
+require("dotenv").config();
+require("./src/config/init");
 
-const express = require('express');
-const path = require('path');
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
 
 const app = express();
 
-app.use(express.json({ limit: '10mb' }));
+app.use(cors());
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  next();
+// API routes
+app.use("/api/auth", require("./src/routes/auth.routes"));
+app.use("/api/users", require("./src/routes/users.routes"));
+app.use("/api/spareparts", require("./src/routes/spareparts.routes"));
+app.use("/api/transactions", require("./src/routes/transactions.routes"));
+
+// serve frontend
+app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true });
 });
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
-});
-
-try {
-  app.use('/import-pdf', require('./routes/import-pdf'));
-  console.log('[DEBUG] Mounted: /import-pdf');
-} catch (e) {
-  console.error('[ERROR] Failed to mount /import-pdf:', e);
-}
-
-// (ถ้าคุณมี routes อื่น ให้ mount ตรงนี้)
-app.use('/auth', require('./routes/auth'));
-app.use('/spareparts', require('./routes/spareparts'));
-app.use('/transactions', require('./routes/transactions'));
-app.use('/users', require('./routes/users'));
-app.use('/settings', require('./routes/settings'));
-app.use('/activity-logs', require('./routes/activity-logs'));
-app.use(express.static(path.join(__dirname, 'public')));
-
-app.use((req, res) => {
-  res.status(404).send('Not found');
-});
-
+// global error handler
 app.use((err, req, res, next) => {
-  console.error('[ERROR] Unhandled:', err);
+  console.error("[ERROR]", err);
   res.status(500).json({
-    message: 'Internal Server Error',
-    error: err && err.message ? err.message : String(err)
+    message: "Internal Server Error",
+    error: err?.message || String(err),
   });
 });
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = process.env.PORT || 3001;
+
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

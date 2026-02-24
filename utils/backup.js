@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const dbPath = path.join(__dirname, '..', 'database', 'it-spareparts.db');
+const dbPath = path.join(__dirname, '..', 'database', 'db.sqlite');
 const backupDir = path.join(__dirname, '..', 'backups');
 
 function getTimestamp() {

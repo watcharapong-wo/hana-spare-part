@@ -6,7 +6,7 @@ db.serialize(() => {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('admin','staff','viewer')),
+      role TEXT NOT NULL CHECK (role IN ('admin','coadmin','staff','viewer')),
       full_name TEXT DEFAULT '',
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT DEFAULT (datetime('now'))

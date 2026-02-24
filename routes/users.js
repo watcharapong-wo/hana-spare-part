@@ -66,8 +66,9 @@ router.post('/', async (req, res) => {
   if (u.length < 3) return fail(res, 'username must be at least 3 characters', 400);
 
   const r = String(role).trim();
-  if (!['admin', 'staff', 'viewer'].includes(r)) {
-    return fail(res, 'role must be one of: admin, staff, viewer', 400);
+  const allowedRoles = ['admin', 'co-admin', 'staff', 'viewer'];
+  if (!allowedRoles.includes(r)) {
+    return fail(res, 'role must be one of: admin, co-admin, staff, viewer', 400);
   }
 
   if (String(password).length < 8) {
@@ -103,6 +104,60 @@ router.post('/', async (req, res) => {
 });
 
 // PATCH /users/:id/status  (เปิด/ปิด)
+
+// PATCH /users/:id (แก้ไขข้อมูลผู้ใช้)
+router.patch('/:id', async (req, res) => {
+  const id = Number(req.params.id);
+  const { full_name, role, password } = req.body;
+
+  if (!Number.isInteger(id) || id <= 0) return fail(res, 'Invalid user id', 400);
+
+  // ตรวจสอบ role
+  if (role) {
+    const allowedRoles = ['admin', 'co-admin', 'staff', 'viewer'];
+    if (!allowedRoles.includes(String(role).trim())) {
+      return fail(res, 'role must be one of: admin, co-admin, staff, viewer', 400);
+    }
+  }
+
+  // เตรียม SQL และ params
+  const fields = [];
+  const params = [];
+  if (full_name !== undefined) {
+    fields.push('full_name = ?');
+    params.push(full_name);
+  }
+  if (role !== undefined) {
+    fields.push('role = ?');
+    params.push(role);
+  }
+  if (password !== undefined && password !== '') {
+    if (String(password).length < 8) return fail(res, 'password must be at least 8 characters', 400);
+    const hash = await bcrypt.hash(String(password), 10);
+    fields.push('password_hash = ?');
+    params.push(hash);
+  }
+  if (fields.length === 0) return fail(res, 'No fields to update', 400);
+  params.push(id);
+
+  db.run(
+    `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
+    params,
+    function (err) {
+      if (err) return fail(res, 'DB error', 500, err.message);
+      if (this.changes === 0) return fail(res, 'User not found', 404);
+
+      db.get(
+        `SELECT id, username, role, full_name, is_active, created_at FROM users WHERE id = ?`,
+        [id],
+        (err2, row) => {
+          if (err2) return fail(res, 'DB error', 500, err2.message);
+          return ok(res, { message: 'User updated', data: row });
+        }
+      );
+    }
+  );
+});
 router.patch('/:id/status', (req, res) => {
   const id = Number(req.params.id);
   const { is_active } = req.body;

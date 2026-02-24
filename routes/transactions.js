@@ -67,10 +67,17 @@ router.post('/issue', requireAuth, requireRole('admin', 'staff'), validateTransa
   const q = Number(qty);
 
   db.get('SELECT * FROM spareparts WHERE id = ?', [id], (err, part) => {
-    if (err) return fail(res, 'DB error', 500, err.message);
-    if (!part) return fail(res, 'Sparepart not found', 404);
+    if (err) {
+      console.error('DB error (select sparepart):', err);
+      return fail(res, 'DB error', 500, err.message);
+    }
+    if (!part) {
+      console.error('Sparepart not found:', id);
+      return fail(res, 'Sparepart not found', 404);
+    }
 
     if (part.quantity < q) {
+      console.error('Not enough stock:', { current: part.quantity, requested: q });
       return fail(res, 'Not enough stock', 400, { current_stock: part.quantity });
     }
 
@@ -82,6 +89,7 @@ router.post('/issue', requireAuth, requireRole('admin', 'staff'), validateTransa
         [q, id],
         function (err2) {
           if (err2) {
+            console.error('DB error (update sparepart):', err2);
             db.run('ROLLBACK');
             return fail(res, 'DB error', 500, err2.message);
           }
@@ -92,6 +100,7 @@ router.post('/issue', requireAuth, requireRole('admin', 'staff'), validateTransa
             [id, q, requester || req.user.username, note || '', req.user.id],
             function (err3) {
               if (err3) {
+                console.error('DB error (insert transaction):', err3);
                 db.run('ROLLBACK');
                 return fail(res, 'DB error', 500, err3.message);
               }
@@ -99,7 +108,10 @@ router.post('/issue', requireAuth, requireRole('admin', 'staff'), validateTransa
               db.run('COMMIT');
 
               db.get('SELECT * FROM spareparts WHERE id = ?', [id], (err4, updatedPart) => {
-                if (err4) return fail(res, 'DB error', 500, err4.message);
+                if (err4) {
+                  console.error('DB error (select updated sparepart):', err4);
+                  return fail(res, 'DB error', 500, err4.message);
+                }
                 return ok(res, {
                   message: 'Issued successfully',
                   transaction_id: this.lastID,

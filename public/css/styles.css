@@ -1,3 +1,87 @@
+/* ==== Inline style replacements ==== */
+.error-message-inline {
+    color: red;
+    margin-bottom: 8px;
+}
+.spinner-hidden {
+    display: none;
+}
+.demo-credentials-box {
+    background: #f8fafc;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px #0001;
+    padding: 18px 20px;
+    margin-top: 24px;
+    text-align: center;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.demo-credentials-title {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #3b82f6;
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+}
+.demo-credentials-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.demo-credentials-row1 {
+    margin-bottom: 6px;
+}
+.demo-credentials-icon1 {
+    font-size: 1.3em;
+}
+.demo-credentials-icon2 {
+    font-size: 1.2em;
+}
+.demo-credentials-label {
+    font-weight: 500;
+    color: #222;
+}
+.demo-credentials-name {
+    background: #e0e7ef;
+    color: #2563eb;
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-family: 'Consolas', 'monospace';
+    font-size: 1em;
+}
+
+/* ==== Dashboard modal/permissions ==== */
+.modal-permissions-hidden {
+    display: none;
+    z-index: 9999;
+}
+.modal-content-permissions {
+    max-width: 400px;
+    position: relative;
+    z-index: 10000;
+    background: #fff;
+}
+.close-permissions {
+    cursor: pointer;
+    position: absolute;
+    top: 10px;
+    right: 16px;
+    font-size: 28px;
+}
+.modal-checkbox-row {
+    margin-bottom: 8px;
+}
+.modal-btn-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 18px;
+}
+.modal-btn-min {
+    min-width: 100px;
+}
 /* ===== Global Styles ===== */
 :root {
     --primary: #3b82f6;
@@ -28,12 +112,14 @@
 
 html {
     scroll-behavior: smooth;
+    box-sizing: border-box;
 }
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-    background-color: #f9fafb;
-    color: #333;
+    background: var(--light);
+    min-height: 100vh;
+    color: var(--text-main, #222);
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -316,13 +402,13 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: 64px;
+    height: 48px; /* ลดความสูง header */
     background: white;
     border-bottom: 2px solid var(--light-secondary);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 24px;
+    padding: 0 18px; /* ลด padding ซ้ายขวา */
     z-index: 1000;
     box-shadow: 0 2px 8px var(--shadow);
 }
@@ -436,14 +522,15 @@ body {
 }
 
 .sidebar {
-    width: 280px;
+    width: 240px;
     background: white;
     box-shadow: 2px 0 15px var(--shadow-lg);
     position: fixed;
-    top: 64px;
-    height: calc(100vh - 64px);
+    top: 48px; /* ให้ตรงกับ header ใหม่ */
+    height: calc(100vh - 48px);
     overflow-y: auto;
     z-index: 100;
+    border-right: 1px solid var(--light-secondary);
 }
 
 .sidebar-header {
@@ -502,44 +589,68 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 14px 20px;
+    padding: 10px 18px;
     color: #6b7280;
     text-decoration: none;
-    transition: all 0.25s ease;
+    transition: all 0.2s;
     border-left: 3px solid transparent;
-    margin: 4px 0;
+    margin: 2px 0;
+    border-radius: 8px;
 }
 
 .nav-item:hover {
     background: var(--light-secondary);
     color: var(--primary);
-    padding-left: 24px;
+    padding-left: 28px;
 }
 
 .nav-item.active {
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%);
+    background: var(--primary-light);
     color: var(--primary);
-    border-left-color: var(--primary);
+    border-left: 4px solid var(--primary);
     font-weight: 600;
-    padding-left: 24px;
+    padding-left: 26px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.07);
 }
 
 .nav-item span {
     font-size: 18px;
 }
 
+/* ปรับ padding-top ให้เท่ากับ header fixed */
 .main-content {
-    margin-left: 280px;
-    margin-top: 64px;
+    margin-left: 240px;
+    margin-right: auto;
+    max-width: 1200px;
+    padding: 72px 32px 24px 32px; /* 72px = 48px header + 24px เดิม */
+    background: white;
+    min-height: 100vh;
     flex: 1;
-    padding: 32px;
+    box-sizing: border-box;
+}
+
+@media (max-width: 1400px) {
+    .main-content {
+        max-width: 100%;
+        padding-left: 18px;
+        padding-right: 18px;
+    }
+}
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+        padding-left: 8px;
+        padding-right: 8px;
+    }
 }
 
 .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 30px;
+    margin-bottom: 18px; /* ลดช่องว่างด้านล่าง */
+    margin-top: 0;
 }
 
 .page-header h1 {
@@ -760,6 +871,7 @@ body {
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.6);
+    -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
 }
 
