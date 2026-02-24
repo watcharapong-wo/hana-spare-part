@@ -1,239 +1,377 @@
 
-// public/js/api.js
-function getToken() {
-  return localStorage.getItem("token") || "";
-}
+// ===== API BASE + apiFetch =====
+window.API_BASE = "http://localhost:3001/api";
 
-function setToken(token) {
-  if (token) localStorage.setItem("token", token);
-  else localStorage.removeItem("token");
-}
+window.apiFetch = async function apiFetch(path, options = {}) {
+  const base = window.API_BASE.replace(/\/$/, "");
+  const url = path.startsWith("http") ? path : `${base}${path.startsWith("/") ? "" : "/"}${path}`;
 
-async function readJsonOrThrow(res) {
+  const token = localStorage.getItem("token") || "";
+  const headers = new Headers(options.headers || {});
+  const isFormData = options.body instanceof FormData;
+
+  if (!isFormData && !headers.has("Content-Type") && options.body !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const res = await fetch(url, { ...options, headers });
+
   const ct = res.headers.get("content-type") || "";
-  const text = await res.text();
-
-  // ถ้า backend ส่งไม่ใช่ JSON (เช่น HTML/ข้อความ) ให้โชว์ข้อความจริงเพื่อ debug
-  if (!ct.includes("application/json")) {
-    throw new Error(`API returned non-JSON (${res.status}): ${text.slice(0, 200)}`);
-  }
-
-  // กันกรณี body ว่างแต่ content-type เป็น json
-  if (!text) return null;
-
-  return JSON.parse(text);
-}
-
-/**
- * apiFetch:
- * - ใส่ Authorization อัตโนมัติถ้ามี token
- * - คืนข้อมูล JSON ที่ parse แล้ว
- * - ถ้าไม่ ok จะ throw Error(message)
- */
-async function apiFetch(path, options = {}) {
-  const headers = Object.assign({}, options.headers || {});
-
-  // ใส่ content-type เฉพาะตอนมี body (POST/PUT/PATCH)
-  const hasBody = options.body !== undefined && options.body !== null;
-  if (hasBody && !headers["Content-Type"]) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const token = getToken();
-  if (token && !headers.Authorization) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const API_BASE = "http://127.0.0.1:3001";
-
-  const res = await fetch(API_BASE + path, { ...options, headers });
-
-  // no content
-  if (res.status === 204) return null;
-
-  const payload = await readJsonOrThrow(res);
+  const data = ct.includes("application/json")
+    ? await res.json().catch(() => null)
+    : await res.text().catch(() => "");
 
   if (!res.ok) {
-    // backend ของคุณมักส่ง { message, error? }
     const msg =
-      (payload && payload.message) ||
+      (data && (data.message || data.error)) ||
+      (typeof data === "string" ? data : "") ||
       `Request failed (${res.status})`;
-    // ถ้า token ไม่ valid ให้ redirect ไป login
-    if (msg && msg.toLowerCase().includes('invalid token')) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = 'index.html';
-      throw new Error('Invalid token');
-    }
     throw new Error(msg);
   }
 
-  return payload;
-}
-
-const api = {
-      deleteUser: async (id) => {
-        const payload = await apiFetch(`/users/${encodeURIComponent(id)}`, {
-          method: 'DELETE',
-        });
-        return payload?.data || payload;
-      },
-    // ---- Users ----
-    createUser: async (data) => {
-      const payload = await apiFetch('/users', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      return payload?.data || payload;
-    },
-  // ---- Auth ----
-  login: async (username, password) => {
-    const payload = await apiFetch("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ username, password }),
-      // ตอน login ไม่ต้องใส่ Bearer
-      headers: { "Content-Type": "application/json" },
-    });
-
-    // payload คาดว่าจะเป็น { token, user }
-    if (payload?.token) setToken(payload.token);
-    if (payload?.user) localStorage.setItem("user", JSON.stringify(payload.user));
-
-    return payload; // {token,user}
-  },
-
-  logout: () => {
-    setToken("");
-    localStorage.removeItem("user");
-  },
-
-  // ---- Dashboard ----
-  getStockSummary: async () => {
-  const payload = await apiFetch("/spareparts", { method: "GET" });
-  const items = payload?.data || [];
-
-  const total_items = items.length;
-  const total_quantity = items.reduce((a, it) => a + (Number(it.quantity) || 0), 0);
-  const low_stock = items.filter(it => Number(it.quantity) < Number(it.min_stock));
-
-  return {
-    summary: {
-      total_items,
-      total_quantity,
-      low_stock_items: low_stock.length
-    },
-    low_stock
-  };
-},
-
-
-  getLowStock: async () => {
-  const sum = await api.getStockSummary();
-  return sum.low_stock || [];
-},
-getRecentTransactions: async (limit = 10) => {
-  try {
-    const payload = await apiFetch(`/transactions/recent?limit=${encodeURIComponent(limit)}`, { method: "GET" });
-    return payload || { data: [] };
-  } catch (e) {
-    return { data: [] };
-  }
-},
-
-  getTransactions: async (params = {}) => {
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && String(v).trim() !== '') qs.set(k, v);
-    }
-    const url = qs.toString() ? '/transactions?' + qs.toString() : '/transactions';
-    const payload = await apiFetch(url, { method: 'GET' });
-    return payload;
-  },
-
-  getUsers: async (params = {}) => {
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && String(v).trim() !== '') qs.set(k, v);
-    }
-    const url = qs.toString() ? '/users?' + qs.toString() : '/users';
-    const payload = await apiFetch(url, { method: 'GET' });
-    return payload;
-  },
-
-  // ---- Spareparts ----
-  getSpareparts: async (params = {}) => {
-    // รองรับ query (q, location, min_qty, max_qty, min_stock, max_stock)
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && String(v).trim() !== "") qs.set(k, v);
-    }
-    const url = qs.toString() ? `/spareparts?${qs.toString()}` : "/spareparts";
-
-    const payload = await apiFetch(url, { method: "GET" });
-    return payload;
-  },
-
-  getSparepartById: async (id) => {
-    const payload = await apiFetch(`/spareparts/${encodeURIComponent(id)}`, { method: "GET" });
-    return payload?.data || null;
-  },
-
-  createSparepart: async (data) => {
-    const payload = await apiFetch("/spareparts", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-    return payload?.data || payload;
-  },
-
-  updateSparepart: async (id, data) => {
-    const payload = await apiFetch(`/spareparts/${encodeURIComponent(id)}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
-    return payload?.data || payload;
-  },
-
-  deleteSparepart: async (id) => {
-    const payload = await apiFetch(`/spareparts/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-    return payload?.data || payload;
-  },
-
-  getBrandingSettings: async () => {
-    // คืน payload ตรง ๆ (ไม่ใช่ payload.data)
-    return await apiFetch('/settings/branding', { method: 'GET' });
-  },
-
-  saveBrandingSettings: async (data) => {
-    // ส่งข้อมูลไป backend (POST)
-    return await apiFetch('/settings/branding', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  // ---- Activity Logs ----
-  getActivityLogs: async (params = {}) => {
-    // เลือก endpoint ตาม role
-    const userStr = localStorage.getItem('user');
-    let endpoint = '/activity-logs';
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        if (user.role !== 'admin') endpoint = '/activity-logs/my';
-      } catch (e) {}
-    }
-    const qs = new URLSearchParams();
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== null && String(v).trim() !== '') qs.set(k, v);
-    }
-    const url = qs.toString() ? `${endpoint}?${qs.toString()}` : endpoint;
-    const payload = await apiFetch(url, { method: 'GET' });
-    return payload;
-  },
+  return data;
 };
 
-// สำคัญ: ให้หน้าอื่น ๆ เรียกได้
-window.api = api;
+// ===== getApi() adapter (เพื่อรองรับโค้ดเดิมใน app.js) =====
+window.getApi = function getApi() {
+  return {
+    // spareparts
+    getSpareparts: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return window.apiFetch(`/spareparts${qs ? `?${qs}` : ""}`);
+    },
+    getSparepartById: (id) => window.apiFetch(`/spareparts/${id}`),
+    createSparepart: (body) => window.apiFetch(`/spareparts`, { method: "POST", body: JSON.stringify(body) }),
+    updateSparepart: (id, body) => window.apiFetch(`/spareparts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+    deleteSparepart: (id) => window.apiFetch(`/spareparts/${id}`, { method: "DELETE" }),
+
+    // transactions (ปรับตาม backend จริงของคุณ)
+    getTransactions: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return window.apiFetch(`/transactions${qs ? `?${qs}` : ""}`);
+    },
+    issueSparepart: (body) => window.apiFetch(`/transactions/issue`, { method: "POST", body: JSON.stringify(body) }),
+    returnSparepart: (body) => window.apiFetch(`/transactions/return`, { method: "POST", body: JSON.stringify(body) }),
+    deleteTransaction: (id) => window.apiFetch(`/transactions/${id}`, { method: "DELETE" }),
+
+    // users
+    getUsers: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return window.apiFetch(`/users${qs ? `?${qs}` : ""}`);
+    },
+    createUser: (body) => window.apiFetch(`/users`, { method: "POST", body: JSON.stringify(body) }),
+    updateUser: (id, body) => window.apiFetch(`/users/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    deleteUser: (id) => window.apiFetch(`/users/${id}`, { method: "DELETE" }),
+
+    // activity logs
+    getActivityLogs: (params = {}) => {
+      const qs = new URLSearchParams(params).toString();
+      return window.apiFetch(`/activity-logs${qs ? `?${qs}` : ""}`);
+    },
+
+    // branding/settings (ปรับตาม backend จริง)
+    getBrandingSettings: () => window.apiFetch(`/settings/branding`),
+  };
+};
+// public/js/api.js
+// ===== MOCK API (CLEAN VERSION) =====
+
+const mockUser = {
+  id: 1,
+  username: "admin",
+  full_name: "Demo Admin",
+  role: "admin"
+};
+
+function safeJsonParse(raw, fallback = null) {
+  try { return JSON.parse(raw); } catch { return fallback; }
+}
+
+let user = safeJsonParse(localStorage.getItem("user"), null) || mockUser;
+localStorage.setItem("user", JSON.stringify(user));
+localStorage.setItem("token", "demo-token");
+window.user = user;
+
+// js/api.js
+(() => {
+  // ---------- helpers ----------
+  function safeJsonParse(raw, fallback = null) {
+    if (raw === null || raw === undefined) return fallback;
+    if (typeof raw !== "string") return fallback;
+    if (raw.trim() === "") return fallback;
+    try { return JSON.parse(raw); } catch { return fallback; }
+  }
+
+  // ---------- demo users ----------
+  const defaultAdmin = {
+    id: 1,
+    username: "admin",
+    full_name: "Demo Admin",
+    email: "admin@example.com",
+    role: "admin",
+    status: "active",
+    // ใส่รหัสผ่าน demo เพื่อให้ login ตรงเงื่อนไขชัดเจน
+    password: "admin1234"
+  };
+
+  function getMockUsers() {
+    const parsed = safeJsonParse(localStorage.getItem("mockUsers"), null);
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+    const seed = [
+      { ...defaultAdmin },
+      {
+        id: 2,
+        username: "staff",
+        full_name: "Demo Staff",
+        email: "staff@example.com",
+        role: "staff",
+        status: "active",
+        password: "staff1234"
+      }
+    ];
+    localStorage.setItem("mockUsers", JSON.stringify(seed));
+    return seed;
+  }
+
+  function saveMockUsers(users) {
+    localStorage.setItem("mockUsers", JSON.stringify(users));
+  }
+
+  // ---------- demo spareparts ----------
+  function getMockSpareparts() {
+    const parsed = safeJsonParse(localStorage.getItem("mockSpareparts"), null);
+    if (Array.isArray(parsed)) return parsed;
+    const seed = [
+      { id: 1, name: "HDD 1TB", quantity: 5, min_stock: 2, location: "คลังหลัก", note: "พร้อมใช้" },
+      { id: 2, name: "RAM 8GB", quantity: 1, min_stock: 2, location: "คลังย่อย", note: "ใกล้หมด" },
+      { id: 3, name: "SSD 512GB", quantity: 10, min_stock: 3, location: "ห้อง IT", note: "-" }
+    ];
+    localStorage.setItem("mockSpareparts", JSON.stringify(seed));
+    return seed;
+  }
+
+  function saveMockSpareparts(items) {
+    localStorage.setItem("mockSpareparts", JSON.stringify(items));
+  }
+
+  // ---------- demo transactions ----------
+  function getMockTransactions() {
+    const parsed = safeJsonParse(localStorage.getItem("mockTransactions"), null);
+    if (Array.isArray(parsed)) return parsed;
+    const seed = [
+      { id: 1, type: "ISSUE", sparepart_id: 1, qty: 1, requester: "user1", created_at: "2026-02-17T09:00:00Z" },
+      { id: 2, type: "RETURN", sparepart_id: 2, qty: 1, requester: "user2", created_at: "2026-02-16T09:00:00Z" }
+    ];
+    localStorage.setItem("mockTransactions", JSON.stringify(seed));
+    return seed;
+  }
+
+  function saveMockTransactions(items) {
+    localStorage.setItem("mockTransactions", JSON.stringify(items));
+  }
+
+  // ---------- state ----------
+  let mockUsers = getMockUsers();
+  let mockSpareparts = getMockSpareparts();
+  let mockTransactions = getMockTransactions();
+
+  // ตั้งค่า session demo ครั้งแรก
+  const storedUser = safeJsonParse(localStorage.getItem("user"), null);
+      window.API_BASE = "http://localhost:3001/api";
+      const API_BASE = window.API_BASE;
+  if (!localStorage.getItem("token")) localStorage.setItem("token", "demo-token");
+
+  // ---------- API ----------
+  const api = {
+    login: async (username, password) => {
+      return apiFetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+    },
+
+    // spareparts
+    getSpareparts: async () => apiFetch('/spareparts'),
+    getSparepartById: async (id) => apiFetch(`/spareparts/${id}`),
+    createSparepart: async (data) => apiFetch('/spareparts', { method: 'POST', body: JSON.stringify(data) }),
+        getUsers: async () => apiFetch('/users'),
+        getTransactions: async () => apiFetch('/transactions'),
+      const newItem = { ...data, id: Date.now() };
+      newItem.quantity = Number(newItem.quantity || 0);
+      newItem.min_stock = Number(newItem.min_stock || 0);
+      mockSpareparts.push(newItem);
+      saveMockSpareparts(mockSpareparts);
+      return { data: newItem };
+    },
+    updateSparepart: async (id, data) => {
+      id = Number(id);
+      const idx = mockSpareparts.findIndex(sp => sp.id === id);
+      if (idx === -1) return { data: null };
+      mockSpareparts[idx] = { ...mockSpareparts[idx], ...data, id };
+      mockSpareparts[idx].quantity = Number(mockSpareparts[idx].quantity || 0);
+      mockSpareparts[idx].min_stock = Number(mockSpareparts[idx].min_stock || 0);
+      saveMockSpareparts(mockSpareparts);
+      return { data: mockSpareparts[idx] };
+    },
+    deleteSparepart: async (id) => {
+      id = Number(id);
+      mockSpareparts = mockSpareparts.filter(sp => sp.id !== id);
+      saveMockSpareparts(mockSpareparts);
+      return {};
+    },
+
+    // transactions
+    getTransactions: async () => ({ data: mockTransactions }),
+    issueSparepart: async (data) => {
+      const sid = Number(data.sparepart_id);
+      const qty = Number(data.qty || 1);
+
+      const idx = mockSpareparts.findIndex(sp => sp.id === sid);
+      if (idx !== -1) {
+        mockSpareparts[idx].quantity = Number(mockSpareparts[idx].quantity || 0) - qty;
+        saveMockSpareparts(mockSpareparts);
+      }
+
+      const newTx = {
+        id: Date.now(),
+        type: "ISSUE",
+        sparepart_id: sid,
+        qty,
+        requester: data.requester || "-",
+        note: data.note || "",
+        created_at: new Date().toISOString()
+      };
+      mockTransactions.push(newTx);
+      saveMockTransactions(mockTransactions);
+      return { data: newTx };
+    },
+    returnSparepart: async (data) => {
+      const sid = Number(data.sparepart_id);
+      const qty = Number(data.qty || 1);
+
+      const idx = mockSpareparts.findIndex(sp => sp.id === sid);
+      if (idx !== -1) {
+        mockSpareparts[idx].quantity = Number(mockSpareparts[idx].quantity || 0) + qty;
+        saveMockSpareparts(mockSpareparts);
+      }
+
+      const newTx = {
+        id: Date.now(),
+        type: "RETURN",
+        sparepart_id: sid,
+        qty,
+        requester: data.requester || "-",
+        note: data.note || "",
+        created_at: new Date().toISOString()
+      };
+      mockTransactions.push(newTx);
+      saveMockTransactions(mockTransactions);
+      return { data: newTx };
+    },
+    deleteTransaction: async (id) => {
+      id = Number(id);
+      mockTransactions = mockTransactions.filter(tx => tx.id !== id);
+      saveMockTransactions(mockTransactions);
+      return {};
+    },
+
+    // users
+    getUsers: async () => {
+      const cleaned = mockUsers.map(({ password, ...rest }) => ({ ...rest }));
+      return { data: cleaned };
+    },
+    createUser: async (data) => {
+      const newUser = {
+        id: Date.now(),
+        username: data.username,
+        full_name: data.full_name || "",
+        email: data.email || "",
+        status: data.status || "active",
+        role: data.role || "staff",
+        password: data.password || ""
+      };
+      mockUsers.push(newUser);
+      saveMockUsers(mockUsers);
+      const { password, ...noPass } = newUser;
+      return { data: noPass };
+    },
+    updateUser: async (id, data) => {
+      id = Number(id);
+      const idx = mockUsers.findIndex(u => u.id === id);
+      if (idx === -1) return { data: null };
+      mockUsers[idx] = { ...mockUsers[idx], ...data, id };
+      saveMockUsers(mockUsers);
+      const { password, ...noPass } = mockUsers[idx];
+      return { data: noPass };
+    },
+    deleteUser: async (id) => {
+      id = Number(id);
+      mockUsers = mockUsers.filter(u => u.id !== id);
+      saveMockUsers(mockUsers);
+      return {};
+    },
+
+    // settings / others (mock)
+    getActivityLogs: async () => ({ data: [] }),
+    getBrandingSettings: async () => ({
+      app_name: "IT Spare Parts Management",
+      app_subtitle: "ระบบจัดการอะไหล่ IT",
+      company_name: "Demo Company",
+      logo_text: "IT",
+      theme: localStorage.getItem("theme") || "light",
+      menu_order: ["dashboard", "spareparts", "transactions", "reports", "users", "activity", "settings"]
+    }),
+    saveBrandingSettings: async (data) => {
+      // เก็บไว้ใน localStorage แบบง่าย
+      localStorage.setItem("brandingSettings", JSON.stringify(data));
+      return {};
+    },
+
+    getUserPermissions: async () => {
+      // demo: admin เห็นหมด, staff เห็นบางเมนู
+      const u = safeJsonParse(localStorage.getItem("user"), null) || { role: "staff" };
+      const role = String(u.role || "").toLowerCase();
+      const permissions = [
+        { menu_key: "dashboard", allowed: true },
+        { menu_key: "spareparts", allowed: true },
+        { menu_key: "transactions", allowed: true },
+        { menu_key: "reports", allowed: true },
+        { menu_key: "users", allowed: role === "admin" },
+        { menu_key: "settings", allowed: role === "admin" },
+        { menu_key: "activity", allowed: true }
+      ];
+      return { permissions };
+    }
+  };
+
+
+  window.api = api;
+})();
+
+// ---- Compatibility: provide getApi for app.js ----
+window.getApi = async function (path, options = {}) {
+  const token = localStorage.getItem("token");
+
+  const headers = Object.assign({}, options.headers || {});
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(path, { ...options, headers });
+
+  const ct = res.headers.get("content-type") || "";
+  const isJson = ct.includes("application/json");
+  const data = isJson ? await res.json().catch(() => null) : await res.text();
+
+  if (!res.ok) {
+    const msg =
+      (data && (data.message || data.error)) ||
+      (typeof data === "string" ? data : "") ||
+      `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+
+  return data;
+};
